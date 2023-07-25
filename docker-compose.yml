@@ -1,0 +1,43 @@
+version: '3'
+
+services:
+  loki:
+    image: grafana/loki:${LOKI_VERSION}
+    depends_on:
+      - s3
+      - s3_loki_bucket
+    ports:
+      - 3100:3100
+    volumes:
+      - ./config.yaml:/etc/loki/config.yaml
+    command:
+      - --config.file=/etc/loki/config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "-O-", "http://localhost:3100/ready"]
+      timeout: 45s
+      interval: 30s
+      start_period: 40s
+      retries: 3
+  s3:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./storage/minio:/data
+    environment:
+      MINIO_ACCESS_KEY: minio_access_key
+      MINIO_SECRET_KEY: minio_secret_key
+    command: server /data
+  s3_loki_bucket:
+    image: minio/mc
+    depends_on:
+      - s3
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc config host add loki http://minio:9000 minio_access_key minio_secret_key;
+      /usr/bin/mc rm -r --force loki/loki;
+      /usr/bin/mc mb loki/loki;
+      /usr/bin/mc policy download loki/loki;
+      exit 0;
+      "

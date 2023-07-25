@@ -1,3 +1,5 @@
+LOKI_VERSION ?= 2.8.3
+
 default: build
 
 build:
@@ -20,7 +22,14 @@ fmt:
 test:
 	go test -v -cover -timeout=120s -parallel=4 ./...
 
-testacc:
-	TF_ACC=1 go test -v -cover -timeout 120m ./...
+testacc: compose-up
+	curl -s --retry 12 -f --retry-all-errors --retry-delay 10 http://localhost:3100/ready
+	TF_ACC=1 LOKI_URI=http://localhost:3100 go test ./... -v $(TESTARGS) -timeout 120m
+
+compose-up: compose-down
+	LOKI_VERSION=$(LOKI_VERSION) docker-compose -f ./docker-compose.yml up -d
+
+compose-down:
+	docker-compose -f ./docker-compose.yml stop
 
 .PHONY: build install lint generate fmt test testacc

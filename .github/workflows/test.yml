@@ -61,7 +61,7 @@ jobs:
           - '1.4.*'
           - '1.5.*'
         loki-version:
-          - '2.8.0'
+          - '2.8.3'
     steps:
 
     - name: Setup Go
@@ -79,15 +79,10 @@ jobs:
         terraform_version: ${{ matrix.terraform }}
         terraform_wrapper: false
 
-#    - name: Setup Grafana Loki from ${{ matrix.loki-version }}
-#      run: |
-#        docker pull grafana/loki:${{ matrix.loki-version }}
-#        docker run \
-#          -d \
-#          -p 8080:8080 \
-#          --name loki \
-#          --entrypoint="/bin/sh" grafana/loki:${{ matrix.loki-version }} \
-#          -c "loki -target=alertmanager,ruler -tenant-federation.enabled=true -ruler.tenant-federation.enabled=true"
-#
-#    - name: Run acceptance test
-#      run: make testacc
+    - name: TF acceptance tests
+      timeout-minutes: 10
+      env:
+        TF_ACC: "1"
+        LOKI_URI: "http://localhost:3100"
+      run: |
+        LOKI_VERSION=${{ matrix.loki-version }} make testacc

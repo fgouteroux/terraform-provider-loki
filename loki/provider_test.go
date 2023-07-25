@@ -10,9 +10,8 @@ import (
 )
 
 var (
-	lokiOrgID    = getSetEnv("LOKI_ORG_ID", "mytenant")
-	lokiURI      = getSetEnv("LOKI_URI", "http://localhost:3100")
-	lokiRulerURI = getSetEnv("LOKI_RULER_URI", "http://localhost:3100")
+	lokiOrgID = getSetEnv("LOKI_ORG_ID", "mytenant")
+	lokiURI   = getSetEnv("LOKI_URI", "http://localhost:3100")
 )
 
 // testAccProviderFactories is a static map containing only the main provider instance

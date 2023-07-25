@@ -57,7 +57,7 @@ func dataSourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.Resourc
 
 	var headers map[string]string
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
-	jobraw, err := client.sendRequest("ruler", "GET", path, "", headers)
+	jobraw, err := client.sendRequest("GET", path, "", headers)
 
 	baseMsg := fmt.Sprintf("Cannot read recording rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)

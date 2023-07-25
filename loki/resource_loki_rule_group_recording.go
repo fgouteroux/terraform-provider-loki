@@ -79,7 +79,7 @@ func resourcelokiRuleGroupRecordingCreate(ctx context.Context, d *schema.Resourc
 	headers := map[string]string{"Content-Type": "application/yaml"}
 
 	path := fmt.Sprintf("%s/%s", rulesPath, namespace)
-	_, err := client.sendRequest("ruler", "POST", path, string(data), headers)
+	_, err := client.sendRequest("POST", path, string(data), headers)
 	baseMsg := fmt.Sprintf("Cannot create recording rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
 	if err != nil {
@@ -99,7 +99,7 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 
 	var headers map[string]string
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
-	jobraw, err := client.sendRequest("ruler", "GET", path, "", headers)
+	jobraw, err := client.sendRequest("GET", path, "", headers)
 
 	baseMsg := fmt.Sprintf("Cannot read recording rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
@@ -147,7 +147,7 @@ func resourcelokiRuleGroupRecordingUpdate(ctx context.Context, d *schema.Resourc
 		headers := map[string]string{"Content-Type": "application/yaml"}
 
 		path := fmt.Sprintf("%s/%s", rulesPath, namespace)
-		_, err := client.sendRequest("ruler", "POST", path, string(data), headers)
+		_, err := client.sendRequest("POST", path, string(data), headers)
 		baseMsg := fmt.Sprintf("Cannot update recording rule group '%s' -", name)
 		err = handleHTTPError(err, baseMsg)
 		if err != nil {
@@ -163,7 +163,7 @@ func resourcelokiRuleGroupRecordingDelete(ctx context.Context, d *schema.Resourc
 	namespace := d.Get("namespace").(string)
 	var headers map[string]string
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
-	_, err := client.sendRequest("ruler", "DELETE", path, "", headers)
+	_, err := client.sendRequest("DELETE", path, "", headers)
 	if err != nil {
 		return diag.FromErr(fmt.Errorf(
 			"cannot delete recording rule group '%s' from %s: %v",

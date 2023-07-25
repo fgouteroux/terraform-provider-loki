@@ -23,7 +23,6 @@ func TestAPIClient(t *testing.T) {
 	/* Notice the intentional trailing / */
 	opt := &apiClientOpt{
 		uri:      "http://127.0.0.1:8082/",
-		rulerURI: "http://127.0.0.1:8082/",
 		insecure: false,
 		username: "",
 		password: "",
@@ -44,7 +43,7 @@ func TestAPIClient(t *testing.T) {
 		log.Printf("api_client_test.go: Testing standard OK request\n")
 	}
 	var headers map[string]string
-	res, err = client.sendRequest("", "GET", "/ok", "", headers)
+	res, err = client.sendRequest("GET", "/ok", "", headers)
 	if err != nil {
 		t.Fatalf("client_test.go: %s", err)
 	}
@@ -55,7 +54,7 @@ func TestAPIClient(t *testing.T) {
 	if debug {
 		log.Printf("api_client_test.go: Testing redirect request\n")
 	}
-	res, err = client.sendRequest("", "GET", "/redirect", "", headers)
+	res, err = client.sendRequest("GET", "/redirect", "", headers)
 	if err != nil {
 		t.Fatalf("client_test.go: %s", err)
 	}
@@ -67,7 +66,7 @@ func TestAPIClient(t *testing.T) {
 	if debug {
 		log.Printf("api_client_test.go: Testing timeout aborts requests\n")
 	}
-	_, err = client.sendRequest("", "GET", "/slow", "", headers)
+	_, err = client.sendRequest("GET", "/slow", "", headers)
 	if err != nil {
 		if debug {
 			log.Println("client_test.go: slow request expected")

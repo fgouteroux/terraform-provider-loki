@@ -100,7 +100,7 @@ func resourcelokiRuleGroupAlertingCreate(ctx context.Context, d *schema.Resource
 	headers := map[string]string{"Content-Type": "application/yaml"}
 
 	path := fmt.Sprintf("%s/%s", rulesPath, namespace)
-	_, err := client.sendRequest("ruler", "POST", path, string(data), headers)
+	_, err := client.sendRequest("POST", path, string(data), headers)
 	baseMsg := fmt.Sprintf("Cannot create alerting rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
 	if err != nil {
@@ -120,7 +120,7 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 
 	var headers map[string]string
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
-	jobraw, err := client.sendRequest("ruler", "GET", path, "", headers)
+	jobraw, err := client.sendRequest("GET", path, "", headers)
 
 	baseMsg := fmt.Sprintf("Cannot read alerting rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
@@ -168,7 +168,7 @@ func resourcelokiRuleGroupAlertingUpdate(ctx context.Context, d *schema.Resource
 		headers := map[string]string{"Content-Type": "application/yaml"}
 
 		path := fmt.Sprintf("%s/%s", rulesPath, namespace)
-		_, err := client.sendRequest("ruler", "POST", path, string(data), headers)
+		_, err := client.sendRequest("POST", path, string(data), headers)
 		baseMsg := fmt.Sprintf("Cannot update alerting rule group '%s' -", name)
 
 		err = handleHTTPError(err, baseMsg)
@@ -185,7 +185,7 @@ func resourcelokiRuleGroupAlertingDelete(ctx context.Context, d *schema.Resource
 	namespace := d.Get("namespace").(string)
 	var headers map[string]string
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
-	_, err := client.sendRequest("ruler", "DELETE", path, "", headers)
+	_, err := client.sendRequest("DELETE", path, "", headers)
 	if err != nil {
 		return diag.FromErr(fmt.Errorf(
 			"cannot delete alerting rule group '%s' from %s: %v",

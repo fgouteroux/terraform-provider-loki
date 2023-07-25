@@ -10,7 +10,7 @@ Example:
 
 ```
 provider "loki" {
-  ruler_uri = "http://localhost:3100"
+  uri = "http://localhost:3100"
   org_id = "mytenant"
 }
 ```
@@ -26,7 +26,7 @@ The provider support basic auth, token.
 
 ```
 provider "loki" {
-  ruler_uri = "http://localhost:3100"
+  uri = "http://localhost:3100"
   org_id = "mytenant"
   username = "user"
   password = "password"
@@ -37,7 +37,7 @@ provider "loki" {
 
 ```
 provider "loki" {
-  ruler_uri = "http://localhost:3100"
+  uri = "http://localhost:3100"
   org_id = "mytenant"
   token = "supersecrettoken"
 }
@@ -47,7 +47,7 @@ provider "loki" {
 
 ```
 provider "loki" {
-  ruler_uri = "http://localhost:3100"
+  uri = "http://localhost:3100"
   org_id = "mytenant"
   header = {
     "Custom-Auth" = "Custom value"

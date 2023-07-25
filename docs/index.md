@@ -16,7 +16,7 @@ The Loki provider provides configuration management resources for
 
 ```terraform
 provider "loki" {
-  ruler_uri = "http://127.0.0.1:3100"
+  uri = "http://127.0.0.1:3100"
   org_id = "mytenant"
 }
 ```
@@ -25,7 +25,7 @@ provider "loki" {
 
 ```terraform
 provider "loki" {
-  ruler_uri = "http://127.0.0.1:3100"
+  uri = "http://127.0.0.1:3100"
   org_id = "mytenant"
   username = "user"
   password = "password"
@@ -36,7 +36,7 @@ provider "loki" {
 
 ```terraform
 provider "loki" {
-  ruler_uri = "http://127.0.0.1:3100"
+  uri = "http://127.0.0.1:3100"
   org_id = "mytenant"
   token = "supersecrettoken"
 }
@@ -46,7 +46,7 @@ provider "loki" {
 
 ```terraform
 provider "loki" {
-  ruler_uri = "http://127.0.0.1:3100"
+  uri = "http://127.0.0.1:3100"
   org_id = "mytenant"
   header = {
     "Custom-Auth" = "Custom value"
@@ -60,6 +60,7 @@ provider "loki" {
 ### Required
 
 - `org_id` (String) The organization id to operate on within loki.
+- `uri` (String) loki base url
 
 ### Optional
 
@@ -70,8 +71,6 @@ provider "loki" {
 - `insecure` (Boolean) When using https, this disables TLS verification of the host.
 - `key` (String) Client key for client authentication
 - `password` (String) When set, will use this password for BASIC auth to the API.
-- `ruler_uri` (String) loki ruler base url
 - `timeout` (Number) When set, will cause requests taking longer than this time (in seconds) to be aborted.
 - `token` (String) When set, will use this token for Bearer auth to the API.
-- `uri` (String) loki base url
 - `username` (String) When set, will use this username for BASIC auth to the API.

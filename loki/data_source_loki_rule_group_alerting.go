@@ -76,7 +76,7 @@ func dataSourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.Resource
 
 	var headers map[string]string
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
-	jobraw, err := client.sendRequest("ruler", "GET", path, "", headers)
+	jobraw, err := client.sendRequest("GET", path, "", headers)
 
 	baseMsg := fmt.Sprintf("Cannot read alerting rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)

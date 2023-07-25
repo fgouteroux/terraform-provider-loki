@@ -18,7 +18,6 @@ import (
 
 type apiClientOpt struct {
 	uri      string
-	rulerURI string
 	cert     string
 	key      string
 	ca       string
@@ -34,7 +33,6 @@ type apiClientOpt struct {
 type apiClient struct {
 	httpClient *http.Client
 	uri        string
-	rulerURI   string
 	insecure   bool
 	token      string
 	username   string
@@ -45,10 +43,6 @@ type apiClient struct {
 
 // Make a new api client for RESTful calls
 func NewAPIClient(opt *apiClientOpt) (*apiClient, error) {
-	if opt.uri == "" && opt.rulerURI == "" {
-		return nil, fmt.Errorf("no provider URIs defined. Please set uri, or ruler_uri")
-	}
-
 	/* Remove any trailing slashes since we will append
 	   to this URL with our own root-prefixed location */
 	opt.uri = strings.TrimSuffix(opt.uri, "/")
@@ -102,7 +96,6 @@ func NewAPIClient(opt *apiClientOpt) (*apiClient, error) {
 			Transport: tr,
 		},
 		uri:      opt.uri,
-		rulerURI: opt.rulerURI,
 		insecure: opt.insecure,
 		token:    opt.token,
 		username: opt.username,
@@ -119,15 +112,8 @@ Helper function that handles sending/receiving and handling
 
 	of HTTP data in and out.
 */
-func (client *apiClient) sendRequest(component, method string, path, data string, headers map[string]string) (string, error) {
-	var fullURI string
-
-	switch {
-	case component == "ruler" && client.rulerURI != "":
-		fullURI = client.rulerURI + path
-	default:
-		fullURI = client.uri + path
-	}
+func (client *apiClient) sendRequest(method string, path, data string, headers map[string]string) (string, error) {
+	fullURI := client.uri + path
 
 	var req *http.Request
 	var err error

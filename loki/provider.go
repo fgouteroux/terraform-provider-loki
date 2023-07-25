@@ -19,15 +19,9 @@ func Provider(version string) func() *schema.Provider {
 			Schema: map[string]*schema.Schema{
 				"uri": {
 					Type:        schema.TypeString,
-					Optional:    true,
+					Required:    true,
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_URI", nil),
 					Description: "loki base url",
-				},
-				"ruler_uri": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("LOKI_RULER_URI", nil),
-					Description: "loki ruler base url",
 				},
 				"org_id": {
 					Type:         schema.TypeString,
@@ -135,7 +129,6 @@ func providerConfigure(d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		ca:       d.Get("ca").(string),
 		insecure: d.Get("insecure").(bool),
 		uri:      d.Get("uri").(string),
-		rulerURI: d.Get("ruler_uri").(string),
 		headers:  headers,
 		timeout:  d.Get("timeout").(int),
 		debug:    d.Get("debug").(bool),

@@ -36,7 +36,7 @@ func testAccCheckLokiRuleGroupExists(n string, name string, client *apiClient) r
 		/* Make a throw-away API object to read from the API */
 		var headers map[string]string
 		path := fmt.Sprintf("%s/%s", rulesPath, rs.Primary.ID)
-		_, err := client.sendRequest("ruler", "GET", path, "", headers)
+		_, err := client.sendRequest("GET", path, "", headers)
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func testAccCheckLokiRuleGroupDestroy(s *terraform.State) error {
 
 		var headers map[string]string
 		path := fmt.Sprintf("%s/%s", rulesPath, rs.Primary.ID)
-		_, err := client.sendRequest("ruler", "GET", path, "", headers)
+		_, err := client.sendRequest("GET", path, "", headers)
 
 		// If the error is equivalent to 404 not found, the widget is destroyed.
 		// Otherwise return the error
@@ -76,7 +76,6 @@ func setupClient() *apiClientOpt {
 
 	opt := &apiClientOpt{
 		uri:      lokiURI,
-		rulerURI: lokiRulerURI,
 		insecure: false,
 		username: "",
 		password: "",

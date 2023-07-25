@@ -3,12 +3,10 @@ package loki
 import (
 	"fmt"
 	"regexp"
-	"strings"
 	"unicode/utf8"
 
+	"github.com/grafana/loki/pkg/logql/syntax"
 	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/promql/parser"
-	// "github.com/grafana/loki/pkg/logql/syntax"
 )
 
 var (
@@ -46,7 +44,6 @@ func validateGroupRuleName(v interface{}, k string) (ws []string, errors []error
 	return
 }
 
-/*
 func validateLogQLExpr(v interface{}, k string) (ws []string, errors []error) {
 	value := v.(string)
 
@@ -57,7 +54,6 @@ func validateLogQLExpr(v interface{}, k string) (ws []string, errors []error) {
 
 	return
 }
-*/
 
 func validateLabels(v interface{}, k string) (ws []string, errors []error) {
 	m := v.(map[string]interface{})
@@ -114,13 +110,4 @@ func SliceFind(slice []string, val string) bool {
 		}
 	}
 	return false
-}
-
-func formatLogQLExpr(v interface{}) string {
-	if enableLogQLExprFormat {
-		value, _ := parser.ParseExpr(v.(string))
-		// remove spaces causing decoding issues with multiline yaml marshal/unmarshall
-		return strings.TrimLeft(parser.Prettify(value), " ")
-	}
-	return v.(string)
 }

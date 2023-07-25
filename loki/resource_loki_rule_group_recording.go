@@ -46,11 +46,10 @@ func resourcelokiRuleGroupRecording() *schema.Resource {
 							ValidateFunc: validateRecordingRuleName,
 						},
 						"expr": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "The LogQL expression to evaluate.",
-							//ValidateFunc: validateLogQLExpr,
-							//StateFunc: formatLogQLExpr,
+							Type:         schema.TypeString,
+							Required:     true,
+							Description:  "The LogQL expression to evaluate.",
+							ValidateFunc: validateLogQLExpr,
 						},
 						"labels": {
 							Type:         schema.TypeMap,
@@ -188,7 +187,7 @@ func expandRecordingRules(v []interface{}) []recordingRule {
 		}
 
 		if raw, ok := data["expr"]; ok {
-			rule.Expr = formatLogQLExpr(raw)
+			rule.Expr = raw.(string)
 		}
 
 		if raw, ok := data["labels"]; ok {
@@ -213,7 +212,7 @@ func flattenRecordingRules(v []recordingRule) []map[string]interface{} {
 	for _, v := range v {
 		rule := make(map[string]interface{})
 		rule["record"] = v.Record
-		rule["expr"] = formatLogQLExpr(v.Expr)
+		rule["expr"] = v.Expr
 
 		if v.Labels != nil {
 			rule["labels"] = v.Labels

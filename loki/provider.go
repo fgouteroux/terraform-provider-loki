@@ -9,8 +9,7 @@ import (
 )
 
 var (
-	rulesPath             = "/loki/api/v1/rules"
-	enableLogQLExprFormat bool
+	rulesPath = "/loki/api/v1/rules"
 )
 
 func Provider(version string) func() *schema.Provider {
@@ -86,13 +85,7 @@ func Provider(version string) func() *schema.Provider {
 					Optional:    true,
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_DEBUG", true),
 					Description: "Enable debug mode to trace requests executed.",
-				}, /*
-					"format_promql_expr": {
-						Type:        schema.TypeBool,
-						Optional:    true,
-						DefaultFunc: schema.EnvDefaultFunc("LOKI_FORMAT_LOGQL_EXPR", false),
-						Description: "Enable the formatting of LogQL expression.",
-					},*/
+				},
 			},
 			DataSourcesMap: map[string]*schema.Resource{
 				"loki_rule_group_alerting":  dataSourcelokiRuleGroupAlerting(),
@@ -133,8 +126,6 @@ func providerConfigure(d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		timeout:  d.Get("timeout").(int),
 		debug:    d.Get("debug").(bool),
 	}
-
-	// enableLogQLExprFormat = d.Get("format_promql_expr").(bool)
 
 	client, err := NewAPIClient(opt)
 	return client, diag.FromErr(err)

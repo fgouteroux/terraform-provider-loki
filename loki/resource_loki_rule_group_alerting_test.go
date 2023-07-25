@@ -21,6 +21,10 @@ func TestAccResourceRuleGroupAlerting_expectValidationError(t *testing.T) {
 				ExpectError: regexp.MustCompile("Invalid Alerting Rule Name"),
 			},
 			{
+				Config:      testAccResourceRuleGroupAlerting_expectLogQLValidationError,
+				ExpectError: regexp.MustCompile("Invalid LogQL expression"),
+			},
+			{
 				Config:      testAccResourceRuleGroupAlerting_expectDurationValidationError,
 				ExpectError: regexp.MustCompile("unknown unit"),
 			},
@@ -38,7 +42,7 @@ func TestAccResourceRuleGroupAlerting_expectValidationError(t *testing.T) {
 
 const testAccResourceRuleGroupAlerting_expectNameValidationError = `
 	resource "loki_rule_group_alerting" "alert_1" {
-		name = "alert-@error" 
+		name = "alert-@error"
 		namespace = "namespace_1"
 		rule {
 			alert = "test1_alert"
@@ -54,6 +58,17 @@ const testAccResourceRuleGroupAlerting_expectRuleNameValidationError = `
 		rule {
 			alert = "test1 alert"
 			expr   = "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"
+		}
+	}
+`
+
+const testAccResourceRuleGroupAlerting_expectLogQLValidationError = `
+	resource "loki_rule_group_alerting" "alert_1" {
+		name = "alert-@error"
+		namespace = "namespace_1"
+		rule {
+			alert = "test1_alert"
+			expr   = "test_bad_expression"
 		}
 	}
 `

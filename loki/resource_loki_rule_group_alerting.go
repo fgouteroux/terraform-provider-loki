@@ -46,11 +46,10 @@ func resourcelokiRuleGroupAlerting() *schema.Resource {
 							ValidateFunc: validateAlertingRuleName,
 						},
 						"expr": {
-							Type:        schema.TypeString,
-							Description: "The PromQL expression to evaluate.",
-							Required:    true,
-							//ValidateFunc: validateLogQLExpr,
-							//StateFunc: formatLogQLExpr,
+							Type:         schema.TypeString,
+							Description:  "The PromQL expression to evaluate.",
+							Required:     true,
+							ValidateFunc: validateLogQLExpr,
 						},
 						"for": {
 							Type:         schema.TypeString,
@@ -210,7 +209,7 @@ func expandAlertingRules(v []interface{}) []alertingRule {
 		}
 
 		if raw, ok := data["expr"]; ok {
-			rule.Expr = formatLogQLExpr(raw)
+			rule.Expr = raw.(string)
 		}
 
 		if raw, ok := data["for"]; ok {
@@ -253,7 +252,7 @@ func flattenAlertingRules(v []alertingRule) []map[string]interface{} {
 	for _, v := range v {
 		rule := make(map[string]interface{})
 		rule["alert"] = v.Alert
-		rule["expr"] = formatLogQLExpr(v.Expr)
+		rule["expr"] = v.Expr
 
 		if v.For != "" {
 			rule["for"] = v.For

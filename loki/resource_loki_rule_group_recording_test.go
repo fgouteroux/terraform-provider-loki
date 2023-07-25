@@ -24,6 +24,10 @@ func TestAccResourceRuleGroupRecording_expectValidationError(t *testing.T) {
 				Config:      testAccResourceRuleGroupRecording_expectLabelNameValidationError,
 				ExpectError: regexp.MustCompile("Invalid Label Name"),
 			},
+			{
+				Config:      testAccResourceRuleGroupRecording_expectLogQLValidationError,
+				ExpectError: regexp.MustCompile("Invalid LogQL expression"),
+			},
 		},
 	})
 }
@@ -58,6 +62,16 @@ const testAccResourceRuleGroupRecording_expectLabelNameValidationError = `
 			labels = {
 				 ins-tance = "localhost"
 			}
+		}
+	}
+`
+const testAccResourceRuleGroupRecording_expectLogQLValidationError = `
+	resource "loki_rule_group_recording" "record_1" {
+		name = "record_1-@error"
+		namespace = "namespace_1"
+		rule {
+			record = "nginx:requests:rate1m"
+			expr   = "sum_invalid(rate({container=\"nginx\"}[1m]))"
 		}
 	}
 `

@@ -1,0 +1,1 @@
+terraform import loki_rule_group_recording.test {{namespace/name}}

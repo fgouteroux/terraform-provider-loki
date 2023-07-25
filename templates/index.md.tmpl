@@ -1,0 +1,31 @@
+---
+layout: ""
+page_title: "Provider: Loki"
+description: |-
+  The Loki provider provides configuration management resources for Grafana Loki.
+---
+
+# Loki Provider
+
+The Loki provider provides configuration management resources for
+[Grafana Loki](https://grafana.com/oss/loki/).
+
+## Example Usage
+
+### Creating a Loki provider
+
+{{ tffile "examples/provider/provider.tf" }}
+
+### Creating a Loki provider with basic auth
+
+{{ tffile "examples/provider/provider-basic-auth.tf" }}
+
+### Creating a Loki provider with token auth
+
+{{ tffile "examples/provider/provider-token-auth.tf" }}
+
+### Creating a Loki provider with custom headers
+
+{{ tffile "examples/provider/provider-custom-headers.tf" }}
+
+{{ .SchemaMarkdown | trimspace }}

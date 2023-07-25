@@ -1,0 +1,1 @@
+terraform import loki_rule_group_alerting.test {{namespace/name}}

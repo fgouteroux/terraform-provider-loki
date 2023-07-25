@@ -16,8 +16,7 @@ The Loki provider provides configuration management resources for
 
 ```terraform
 provider "loki" {
-  ruler_uri = "http://127.0.0.1:8080/prometheus"
-  alertmanager_uri = "http://127.0.0.1:8080"
+  ruler_uri = "http://127.0.0.1:3100"
   org_id = "mytenant"
 }
 ```
@@ -26,8 +25,7 @@ provider "loki" {
 
 ```terraform
 provider "loki" {
-  ruler_uri = "http://127.0.0.1:8080/prometheus"
-  alertmanager_uri = "http://127.0.0.1:8080"
+  ruler_uri = "http://127.0.0.1:3100"
   org_id = "mytenant"
   username = "user"
   password = "password"
@@ -38,8 +36,7 @@ provider "loki" {
 
 ```terraform
 provider "loki" {
-  ruler_uri = "http://127.0.0.1:8080/prometheus"
-  alertmanager_uri = "http://127.0.0.1:8080"
+  ruler_uri = "http://127.0.0.1:3100"
   org_id = "mytenant"
   token = "supersecrettoken"
 }
@@ -49,8 +46,7 @@ provider "loki" {
 
 ```terraform
 provider "loki" {
-  ruler_uri = "http://127.0.0.1:8080/prometheus"
-  alertmanager_uri = "http://127.0.0.1:8080"
+  ruler_uri = "http://127.0.0.1:3100"
   org_id = "mytenant"
   header = {
     "Custom-Auth" = "Custom value"

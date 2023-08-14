@@ -3,7 +3,7 @@ module github.com/fgouteroux/terraform-provider-loki
 go 1.20
 
 require (
-	github.com/grafana/loki v1.6.2-0.20230725115109-7e5d36845f19
+	github.com/grafana/loki v1.6.2-0.20230727091221-2880b5055a71
 	github.com/hashicorp/terraform-plugin-docs v0.15.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.27.0
 	github.com/prometheus/common v0.44.0

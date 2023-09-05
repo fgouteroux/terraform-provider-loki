@@ -58,10 +58,10 @@ jobs:
           - ubuntu-latest
         terraform:
           - '0.12.*'
-          - '1.4.*'
           - '1.5.*'
         loki-version:
           - '2.8.3'
+          - '2.8.4'
     steps:
 
     - name: Setup Go

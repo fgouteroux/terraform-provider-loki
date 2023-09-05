@@ -56,7 +56,7 @@ sum(rate({app="foo", env="production"}[5m])) by (job)
 Required:
 
 - `alert` (String) The name of the alert.
-- `expr` (String) The PromQL expression to evaluate.
+- `expr` (String) The LogQL expression to evaluate.
 
 Optional:
 

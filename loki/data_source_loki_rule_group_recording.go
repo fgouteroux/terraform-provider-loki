@@ -42,6 +42,12 @@ func dataSourcelokiRuleGroupRecording() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
+						"labels": {
+							Type:        schema.TypeMap,
+							Description: "Alerting Rule labels",
+							Elem:        &schema.Schema{Type: schema.TypeString},
+							Computed:    true,
+						},
 					},
 				},
 			},

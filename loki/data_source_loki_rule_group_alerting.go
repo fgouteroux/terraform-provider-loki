@@ -49,6 +49,11 @@ func dataSourcelokiRuleGroupAlerting() *schema.Resource {
 							Description: "Alerting Rule duration",
 							Computed:    true,
 						},
+						"keep_firing_for": {
+							Type:        schema.TypeString,
+							Description: "Alerting rule continue firing duration",
+							Computed:    true,
+						},
 						"annotations": {
 							Type:        schema.TypeMap,
 							Description: "Alerting Rule annotations",

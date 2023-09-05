@@ -41,6 +41,7 @@ data "loki_rule_group_recording" "record" {
 Read-Only:
 
 - `expr` (String)
+- `labels` (Map of String)
 - `record` (String)
 
 

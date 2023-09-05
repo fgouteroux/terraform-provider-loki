@@ -47,7 +47,7 @@ func resourcelokiRuleGroupAlerting() *schema.Resource {
 						},
 						"expr": {
 							Type:         schema.TypeString,
-							Description:  "The PromQL expression to evaluate.",
+							Description:  "The LogQL expression to evaluate.",
 							Required:     true,
 							ValidateFunc: validateLogQLExpr,
 						},

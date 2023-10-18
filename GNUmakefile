@@ -20,11 +20,13 @@ fmt:
 	gofmt -s -w -e .
 
 test:
-	go test -v -cover -timeout=120s -parallel=4 ./...
+	go test -v -cover -timeout 30s -coverprofile=cover.out -parallel=4 ./...
+	go tool cover -func=cover.out
 
 testacc: compose-up
 	curl -s --retry 12 -f --retry-all-errors --retry-delay 10 http://localhost:3100/ready
-	TF_ACC=1 LOKI_URI=http://localhost:3100 go test ./... -v $(TESTARGS) -timeout 120m
+	TF_ACC=1 LOKI_URI=http://localhost:3100 go test -cover ./... -v $(TESTARGS) -timeout 120m -coverprofile=cover.out
+	go tool cover -func=cover.out
 
 compose-up: compose-down
 	LOKI_VERSION=$(LOKI_VERSION) docker-compose -f ./docker-compose.yml up -d

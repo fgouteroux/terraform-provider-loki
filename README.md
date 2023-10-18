@@ -89,6 +89,7 @@ Example:
 resource "loki_rule_group_recording" "record" {
   name      = "test1"
   namespace = "namespace1"
+  interval  = "1m"
   rule {
     expr   = "sum(rate({container=\"nginx\"}[1m]))"
     record = "nginx:requests:rate1m"

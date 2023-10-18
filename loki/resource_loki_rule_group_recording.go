@@ -34,6 +34,12 @@ func resourcelokiRuleGroupRecording() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validateGroupRuleName,
 			},
+			"interval": {
+				Type:         schema.TypeString,
+				Description:  "Recording Rule group interval",
+				Optional:     true,
+				ValidateFunc: validateDuration,
+			},
 			"rule": {
 				Type:     schema.TypeList,
 				Required: true,
@@ -71,8 +77,9 @@ func resourcelokiRuleGroupRecordingCreate(ctx context.Context, d *schema.Resourc
 	namespace := d.Get("namespace").(string)
 
 	rules := &recordingRuleGroup{
-		Name:  name,
-		Rules: expandRecordingRules(d.Get("rule").([]interface{})),
+		Name:     name,
+		Interval: d.Get("interval").(string),
+		Rules:    expandRecordingRules(d.Get("rule").([]interface{})),
 	}
 	data, _ := yaml.Marshal(rules)
 	headers := map[string]string{"Content-Type": "application/yaml"}
@@ -124,7 +131,13 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 	if err != nil {
 		return diag.FromErr(err)
 	}
+
 	err = d.Set("name", name)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	err = d.Set("interval", data.Interval)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -139,8 +152,9 @@ func resourcelokiRuleGroupRecordingUpdate(ctx context.Context, d *schema.Resourc
 		namespace := d.Get("namespace").(string)
 
 		rules := &recordingRuleGroup{
-			Name:  name,
-			Rules: expandRecordingRules(d.Get("rule").([]interface{})),
+			Name:     name,
+			Interval: d.Get("interval").(string),
+			Rules:    expandRecordingRules(d.Get("rule").([]interface{})),
 		}
 		data, _ := yaml.Marshal(rules)
 		headers := map[string]string{"Content-Type": "application/yaml"}
@@ -242,6 +256,7 @@ type recordingRule struct {
 }
 
 type recordingRuleGroup struct {
-	Name  string          `yaml:"name"`
-	Rules []recordingRule `yaml:"rules"`
+	Name     string          `yaml:"name"`
+	Interval string          `yaml:"interval,omitempty"`
+	Rules    []recordingRule `yaml:"rules"`
 }

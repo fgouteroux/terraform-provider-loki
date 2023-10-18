@@ -111,6 +111,17 @@ func TestAccResourceRuleGroupRecording_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1", "rule.1.labels.key1", "val1"),
 				),
 			},
+			{
+				Config: testAccResourceRuleGroupRecording_interval,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckLokiRuleGroupExists("loki_rule_group_recording.record_1_interval", "record_1", client),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_interval", "name", "record_1"),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_interval", "namespace", "namespace_1"),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_interval", "interval", "1m"),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_interval", "rule.0.record", "nginx:requests:rate1m"),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_interval", "rule.0.expr", "sum(rate({container=\"nginx\"}[1m]))"),
+				),
+			},
 		},
 	})
 }
@@ -140,6 +151,17 @@ const testAccResourceRuleGroupRecording_basic_update = `
 			labels = {
 				key1 = "val1"
 			}
+		}
+	}
+`
+const testAccResourceRuleGroupRecording_interval = `
+	resource "loki_rule_group_recording" "record_1_interval" {
+		name = "record_1"
+		namespace = "namespace_1"
+		interval  = "1m"
+		rule {
+			record = "nginx:requests:rate1m"
+			expr   = "sum(rate({container=\"nginx\"}[1m]))"
 		}
 	}
 `

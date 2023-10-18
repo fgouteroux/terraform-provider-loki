@@ -29,6 +29,11 @@ func dataSourcelokiRuleGroupRecording() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validateGroupRuleName,
 			},
+			"interval": {
+				Type:        schema.TypeString,
+				Description: "Recording Rule group interval",
+				Computed:    true,
+			},
 			"rule": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -83,6 +88,9 @@ func dataSourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.Resourc
 		return diag.FromErr(fmt.Errorf("unable to decode recording rule group '%s' data: %v", name, err))
 	}
 	if err := d.Set("rule", flattenRecordingRules(data.Rules)); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("interval", data.Interval); err != nil {
 		return diag.FromErr(err)
 	}
 

@@ -33,6 +33,7 @@ resource "loki_rule_group_recording" "test" {
 
 ### Optional
 
+- `interval` (String) Recording Rule group interval
 - `namespace` (String) Recording Rule group namespace
 
 ### Read-Only

@@ -34,6 +34,12 @@ func resourcelokiRuleGroupAlerting() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validateGroupRuleName,
 			},
+			"interval": {
+				Type:         schema.TypeString,
+				Description:  "Alerting Rule group interval",
+				Optional:     true,
+				ValidateFunc: validateDuration,
+			},
 			"rule": {
 				Type:     schema.TypeList,
 				Required: true,
@@ -92,8 +98,9 @@ func resourcelokiRuleGroupAlertingCreate(ctx context.Context, d *schema.Resource
 	namespace := d.Get("namespace").(string)
 
 	rules := &alertingRuleGroup{
-		Name:  name,
-		Rules: expandAlertingRules(d.Get("rule").([]interface{})),
+		Name:     name,
+		Interval: d.Get("interval").(string),
+		Rules:    expandAlertingRules(d.Get("rule").([]interface{})),
 	}
 	data, _ := yaml.Marshal(rules)
 	headers := map[string]string{"Content-Type": "application/yaml"}
@@ -149,6 +156,10 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	err = d.Set("interval", data.Interval)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	return diag.Diagnostics{}
 }
@@ -160,8 +171,9 @@ func resourcelokiRuleGroupAlertingUpdate(ctx context.Context, d *schema.Resource
 		namespace := d.Get("namespace").(string)
 
 		rules := &alertingRuleGroup{
-			Name:  name,
-			Rules: expandAlertingRules(d.Get("rule").([]interface{})),
+			Name:     name,
+			Interval: d.Get("interval").(string),
+			Rules:    expandAlertingRules(d.Get("rule").([]interface{})),
 		}
 		data, _ := yaml.Marshal(rules)
 		headers := map[string]string{"Content-Type": "application/yaml"}
@@ -294,6 +306,7 @@ type alertingRule struct {
 }
 
 type alertingRuleGroup struct {
-	Name  string         `yaml:"name"`
-	Rules []alertingRule `yaml:"rules"`
+	Name     string         `yaml:"name"`
+	Interval string         `yaml:"interval,omitempty"`
+	Rules    []alertingRule `yaml:"rules"`
 }

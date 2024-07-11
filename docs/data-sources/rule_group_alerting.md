@@ -33,6 +33,7 @@ data "loki_rule_group_alerting" "alert" {
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `interval` (String) Recording Rule group interval
 - `rule` (List of Object) (see [below for nested schema](#nestedatt--rule))
 
 <a id="nestedatt--rule"></a>

@@ -44,6 +44,7 @@ sum(rate({app="foo", env="production"}[5m])) by (job)
 
 ### Optional
 
+- `interval` (String) Alerting Rule group interval
 - `namespace` (String) Alerting Rule group namespace
 
 ### Read-Only

@@ -151,6 +151,17 @@ func TestAccResourceRuleGroupAlerting_Basic(t *testing.T) {
 					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1", "rule.1.annotations.description", "test 2 alert description"),
 				),
 			},
+			{
+				Config: testAccResourceRuleGroupAlerting_interval,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckLokiRuleGroupExists("loki_rule_group_alerting.alert_1_interval", "alert_1_interval", client),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_interval", "name", "alert_1"),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_interval", "namespace", "namespace_1"),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_interval", "interval", "1m"),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_interval", "rule.0.alert", "test1"),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_interval", "rule.0.expr", "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"),
+				),
+			},
 		},
 	})
 }
@@ -185,6 +196,18 @@ const testAccResourceRuleGroupAlerting_basic_update = `
 				summary = "test 2 alert summary"
 				description = "test 2 alert description"
 			}
+		}
+	}
+`
+
+const testAccResourceRuleGroupAlerting_interval = `
+	resource "loki_rule_group_alerting" "alert_1_interval" {
+		name = "alert_1"
+		namespace = "namespace_1"
+		interval  = "1m"
+		rule {
+			alert = "test1"
+			expr  = "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"
 		}
 	}
 `

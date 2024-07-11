@@ -29,6 +29,11 @@ func dataSourcelokiRuleGroupAlerting() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validateGroupRuleName,
 			},
+			"interval": {
+				Type:        schema.TypeString,
+				Description: "Recording Rule group interval",
+				Computed:    true,
+			},
 			"rule": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -101,6 +106,9 @@ func dataSourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.Resource
 		return diag.FromErr(fmt.Errorf("unable to decode alerting rule group '%s' data: %v", name, err))
 	}
 	if err := d.Set("rule", flattenAlertingRules(data.Rules)); err != nil {
+		return diag.FromErr(err)
+	}
+	if err := d.Set("interval", data.Interval); err != nil {
 		return diag.FromErr(err)
 	}
 

@@ -1,6 +1,6 @@
 module github.com/fgouteroux/terraform-provider-loki
 
-go 1.20
+go 1.21
 
 require (
 	github.com/grafana/loki v1.6.2-0.20230727091221-2880b5055a71

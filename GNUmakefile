@@ -29,9 +29,9 @@ testacc: compose-up
 	go tool cover -func=cover.out
 
 compose-up: compose-down
-	LOKI_VERSION=$(LOKI_VERSION) docker-compose -f ./docker-compose.yml up -d
+	LOKI_VERSION=$(LOKI_VERSION) docker compose -f ./docker-compose.yml up -d
 
 compose-down:
-	docker-compose -f ./docker-compose.yml stop
+	docker compose -f ./docker-compose.yml stop
 
 .PHONY: build install lint generate fmt test testacc

@@ -31,7 +31,7 @@ func dataSourcelokiRuleGroupAlerting() *schema.Resource {
 			},
 			"interval": {
 				Type:        schema.TypeString,
-				Description: "Recording Rule group interval",
+				Description: "Alerting Rule group interval",
 				Computed:    true,
 			},
 			"rule": {

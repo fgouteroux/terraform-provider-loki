@@ -94,6 +94,7 @@ func Provider(version string) func() *schema.Provider {
 			DataSourcesMap: map[string]*schema.Resource{
 				"loki_rule_group_alerting":  dataSourcelokiRuleGroupAlerting(),
 				"loki_rule_group_recording": dataSourcelokiRuleGroupRecording(),
+				"loki_rule_group_list":      dataSourcelokiRuleGroupList(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"loki_rule_group_alerting":  resourcelokiRuleGroupAlerting(),

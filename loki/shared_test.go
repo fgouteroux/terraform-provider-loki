@@ -33,9 +33,16 @@ func testAccCheckLokiRuleGroupExists(n string, name string, client *apiClient) r
 			return fmt.Errorf("loki object name %s not set in terraform", name)
 		}
 
+		orgID := rs.Primary.Attributes["org_id"]
+		name := rs.Primary.Attributes["name"]
+		namespace := rs.Primary.Attributes["namespace"]
+
 		/* Make a throw-away API object to read from the API */
-		var headers map[string]string
-		path := fmt.Sprintf("%s/%s", rulesPath, rs.Primary.ID)
+		headers := make(map[string]string)
+		if orgID != "" {
+			headers["X-Scope-OrgID"] = orgID
+		}
+		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
 		_, err := client.sendRequest("GET", path, "", headers)
 		if err != nil {
 			return err
@@ -56,8 +63,16 @@ func testAccCheckLokiRuleGroupDestroy(s *terraform.State) error {
 			continue
 		}
 
-		var headers map[string]string
-		path := fmt.Sprintf("%s/%s", rulesPath, rs.Primary.ID)
+		orgID := rs.Primary.Attributes["org_id"]
+		name := rs.Primary.Attributes["name"]
+		namespace := rs.Primary.Attributes["namespace"]
+
+		/* Make a throw-away API object to read from the API */
+		headers := make(map[string]string)
+		if orgID != "" {
+			headers["X-Scope-OrgID"] = orgID
+		}
+		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
 		_, err := client.sendRequest("GET", path, "", headers)
 
 		// If the error is equivalent to 404 not found, the widget is destroyed.

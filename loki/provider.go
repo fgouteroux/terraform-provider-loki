@@ -5,7 +5,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 var (
@@ -23,11 +22,10 @@ func Provider(version string) func() *schema.Provider {
 					Description: "loki base url",
 				},
 				"org_id": {
-					Type:         schema.TypeString,
-					Required:     true,
-					DefaultFunc:  schema.EnvDefaultFunc("LOKI_ORG_ID", nil),
-					Description:  "The organization id to operate on within loki.",
-					ValidateFunc: validation.StringIsNotEmpty,
+					Type:        schema.TypeString,
+					Required:    true,
+					DefaultFunc: schema.EnvDefaultFunc("LOKI_ORG_ID", nil),
+					Description: "The default organization id to operate on within loki. For resources that have an org_id attribute, the resource-level attribute has priority. May alternatively be set via the LOKI_ORG_ID environment variable.",
 				},
 				"token": {
 					Type:        schema.TypeString,

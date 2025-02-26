@@ -20,6 +20,12 @@ func resourcelokiRuleGroupAlerting() *schema.Resource {
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
+			"org_id": {
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Optional:    true,
+				Description: "The Organization ID. If not set, the Org ID defined in the provider block will be used.",
+			},
 			"namespace": {
 				Type:        schema.TypeString,
 				Description: "Alerting Rule group namespace",
@@ -98,6 +104,7 @@ func resourcelokiRuleGroupAlertingCreate(ctx context.Context, d *schema.Resource
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
 	namespace := d.Get("namespace").(string)
+	orgID := d.Get("org_id").(string)
 
 	rules := &alertingRuleGroup{
 		Name:     name,
@@ -106,6 +113,9 @@ func resourcelokiRuleGroupAlertingCreate(ctx context.Context, d *schema.Resource
 	}
 	data, _ := yaml.Marshal(rules)
 	headers := map[string]string{"Content-Type": "application/yaml"}
+	if orgID != "" {
+		headers["X-Scope-OrgID"] = orgID
+	}
 
 	path := fmt.Sprintf("%s/%s", rulesPath, namespace)
 	_, err := client.sendRequest("POST", path, string(data), headers)
@@ -114,7 +124,11 @@ func resourcelokiRuleGroupAlertingCreate(ctx context.Context, d *schema.Resource
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	d.SetId(fmt.Sprintf("%s/%s", namespace, name))
+	if orgID != "" {
+		d.SetId(fmt.Sprintf("%s/%s/%s", orgID, namespace, name))
+	} else {
+		d.SetId(fmt.Sprintf("%s/%s", namespace, name))
+	}
 	return resourcelokiRuleGroupAlertingRead(ctx, d, meta)
 }
 
@@ -123,10 +137,25 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 
 	// use id as read is also called by import
 	idArr := strings.Split(d.Id(), "/")
-	namespace := idArr[0]
-	name := idArr[1]
 
-	var headers map[string]string
+	var name, namespace, orgID string
+
+	switch len(idArr) {
+	case 2:
+		namespace = idArr[0]
+		name = idArr[1]
+	case 3:
+		orgID = idArr[0]
+		namespace = idArr[1]
+		name = idArr[2]
+	default:
+		return diag.FromErr(fmt.Errorf("invalid id format: expected 'namespace/name' or 'org_id/namespace/name', got '%s'", d.Id()))
+	}
+
+	headers := make(map[string]string)
+	if orgID != "" {
+		headers["X-Scope-OrgID"] = orgID
+	}
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
 	jobraw, err := client.sendRequest("GET", path, "", headers)
 
@@ -144,6 +173,11 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 	err = yaml.Unmarshal([]byte(jobraw), &data)
 	if err != nil {
 		return diag.FromErr(fmt.Errorf("unable to decode alerting namespace rule group '%s' data: %v", name, err))
+	}
+
+	err = d.Set("org_id", orgID)
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
 	if err := d.Set("rule", flattenAlertingRules(data.Rules)); err != nil {
@@ -171,6 +205,7 @@ func resourcelokiRuleGroupAlertingUpdate(ctx context.Context, d *schema.Resource
 		client := meta.(*apiClient)
 		name := d.Get("name").(string)
 		namespace := d.Get("namespace").(string)
+		orgID := d.Get("org_id").(string)
 
 		rules := &alertingRuleGroup{
 			Name:     name,
@@ -179,7 +214,9 @@ func resourcelokiRuleGroupAlertingUpdate(ctx context.Context, d *schema.Resource
 		}
 		data, _ := yaml.Marshal(rules)
 		headers := map[string]string{"Content-Type": "application/yaml"}
-
+		if orgID != "" {
+			headers["X-Scope-OrgID"] = orgID
+		}
 		path := fmt.Sprintf("%s/%s", rulesPath, namespace)
 		_, err := client.sendRequest("POST", path, string(data), headers)
 		baseMsg := fmt.Sprintf("Cannot update alerting rule group '%s' -", name)
@@ -196,7 +233,11 @@ func resourcelokiRuleGroupAlertingDelete(ctx context.Context, d *schema.Resource
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
 	namespace := d.Get("namespace").(string)
-	var headers map[string]string
+	orgID := d.Get("org_id").(string)
+	headers := make(map[string]string)
+	if orgID != "" {
+		headers["X-Scope-OrgID"] = orgID
+	}
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
 	_, err := client.sendRequest("DELETE", path, "", headers)
 	if err != nil {

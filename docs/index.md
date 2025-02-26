@@ -59,7 +59,7 @@ provider "loki" {
 
 ### Required
 
-- `org_id` (String) The organization id to operate on within loki.
+- `org_id` (String) The default organization id to operate on within loki. For resources that have an org_id attribute, the resource-level attribute has priority. May alternatively be set via the LOKI_ORG_ID environment variable.
 - `uri` (String) loki base url
 
 ### Optional

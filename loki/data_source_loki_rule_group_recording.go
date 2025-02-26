@@ -15,6 +15,12 @@ func dataSourcelokiRuleGroupRecording() *schema.Resource {
 		ReadContext: dataSourcelokiRuleGroupRecordingRead,
 
 		Schema: map[string]*schema.Schema{
+			"org_id": {
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Optional:    true,
+				Description: "The Organization ID. If not set, the Org ID defined in the provider block will be used.",
+			},
 			"namespace": {
 				Type:        schema.TypeString,
 				Description: "Recording Rule group namespace",
@@ -65,8 +71,15 @@ func dataSourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.Resourc
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
 	namespace := d.Get("namespace").(string)
+	orgID := d.Get("org_id").(string)
 
-	var headers map[string]string
+	id := fmt.Sprintf("%s/%s", namespace, name)
+
+	headers := make(map[string]string)
+	if orgID != "" {
+		headers["X-Scope-OrgID"] = orgID
+		id = fmt.Sprintf("%s/%s/%s", orgID, namespace, name)
+	}
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
 	jobraw, err := client.sendRequest("GET", path, "", headers)
 
@@ -80,7 +93,7 @@ func dataSourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.Resourc
 		return diag.FromErr(err)
 	}
 
-	d.SetId(fmt.Sprintf("%s/%s", namespace, name))
+	d.SetId(id)
 
 	var data recordingRuleGroup
 	err = yaml.Unmarshal([]byte(jobraw), &data)

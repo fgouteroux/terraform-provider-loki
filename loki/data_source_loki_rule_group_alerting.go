@@ -15,6 +15,12 @@ func dataSourcelokiRuleGroupAlerting() *schema.Resource {
 		ReadContext: dataSourcelokiRuleGroupAlertingRead,
 
 		Schema: map[string]*schema.Schema{
+			"org_id": {
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Optional:    true,
+				Description: "The Organization ID. If not set, the Org ID defined in the provider block will be used.",
+			},
 			"namespace": {
 				Type:        schema.TypeString,
 				Description: "Alerting Rule group namespace",
@@ -85,8 +91,15 @@ func dataSourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.Resource
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
 	namespace := d.Get("namespace").(string)
+	orgID := d.Get("org_id").(string)
 
-	var headers map[string]string
+	id := fmt.Sprintf("%s/%s", namespace, name)
+
+	headers := make(map[string]string)
+	if orgID != "" {
+		headers["X-Scope-OrgID"] = orgID
+		id = fmt.Sprintf("%s/%s/%s", orgID, namespace, name)
+	}
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
 	jobraw, err := client.sendRequest("GET", path, "", headers)
 
@@ -100,7 +113,7 @@ func dataSourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.Resource
 		return diag.FromErr(err)
 	}
 
-	d.SetId(fmt.Sprintf("%s/%s", namespace, name))
+	d.SetId(id)
 
 	var data alertingRuleGroup
 	err = yaml.Unmarshal([]byte(jobraw), &data)

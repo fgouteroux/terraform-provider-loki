@@ -126,6 +126,33 @@ func TestAccResourceRuleGroupRecording_Basic(t *testing.T) {
 	})
 }
 
+func TestAccResourceRuleGroupRecording_WithOrgID(t *testing.T) {
+	// Init client
+	client, err := NewAPIClient(setupClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckLokiRuleGroupDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceRuleGroupRecording_withOrgID,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckLokiRuleGroupExists("loki_rule_group_recording.record_1_withOrgID", "record_1_withOrgID", client),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_withOrgID", "org_id", "another_tenant"),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_withOrgID", "name", "record_1_withOrgID"),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_withOrgID", "namespace", "namespace_1"),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_withOrgID", "rule.0.record", "nginx:requests:rate1m"),
+					resource.TestCheckResourceAttr("loki_rule_group_recording.record_1_withOrgID", "rule.0.expr", "sum(rate({container=\"nginx\"}[1m]))"),
+				),
+			},
+		},
+	})
+}
+
 const testAccResourceRuleGroupRecording_basic = `
 	resource "loki_rule_group_recording" "record_1" {
 		name = "record_1"
@@ -159,6 +186,18 @@ const testAccResourceRuleGroupRecording_interval = `
 		name = "record_1"
 		namespace = "namespace_1"
 		interval  = "1m"
+		rule {
+			record = "nginx:requests:rate1m"
+			expr   = "sum(rate({container=\"nginx\"}[1m]))"
+		}
+	}
+`
+
+const testAccResourceRuleGroupRecording_withOrgID = `
+	resource "loki_rule_group_recording" "record_1_withOrgID" {
+		org_id = "another_tenant"
+		name = "record_1_withOrgID"
+		namespace = "namespace_1"
 		rule {
 			record = "nginx:requests:rate1m"
 			expr   = "sum(rate({container=\"nginx\"}[1m]))"

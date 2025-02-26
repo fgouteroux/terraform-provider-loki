@@ -219,6 +219,33 @@ func TestAccResourceRuleGroupAlerting_Operator(t *testing.T) {
 	})
 }
 
+func TestAccResourceRuleGroupAlerting_WithOrgID(t *testing.T) {
+	// Init client
+	client, err := NewAPIClient(setupClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckLokiRuleGroupDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceRuleGroupAlerting_withOrgID,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckLokiRuleGroupExists("loki_rule_group_alerting.alert_1_withOrgID", "alert_1_withOrgID", client),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_withOrgID", "org_id", "another_tenant"),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_withOrgID", "name", "alert_1_withOrgID"),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_withOrgID", "namespace", "namespace_1"),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_withOrgID", "rule.0.alert", "test1"),
+					resource.TestCheckResourceAttr("loki_rule_group_alerting.alert_1_withOrgID", "rule.0.expr", "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"),
+				),
+			},
+		},
+	})
+}
+
 const testAccResourceRuleGroupAlerting_basic = `
 	resource "loki_rule_group_alerting" "alert_1" {
 		name = "alert_1"
@@ -272,6 +299,17 @@ const testAccResourceRuleGroupAlerting_operator = `
 		rule {
 			alert = "test1"
 			expr  = "{app=\"foo\", env=\"production\"} |= \"error\" OR \"exception\""
+		}
+	}
+`
+const testAccResourceRuleGroupAlerting_withOrgID = `
+	resource "loki_rule_group_alerting" "alert_1_withOrgID" {
+		org_id = "another_tenant"
+		name = "alert_1_withOrgID"
+		namespace = "namespace_1"
+		rule {
+			alert = "test1"
+			expr  = "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"
 		}
 	}
 `

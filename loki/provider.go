@@ -99,6 +99,7 @@ func Provider(version string) func() *schema.Provider {
 			ResourcesMap: map[string]*schema.Resource{
 				"loki_rule_group_alerting":  resourcelokiRuleGroupAlerting(),
 				"loki_rule_group_recording": resourcelokiRuleGroupRecording(),
+				"loki_rules":                resourcelokiRules(),
 			},
 		}
 		p.ConfigureContextFunc = func(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {

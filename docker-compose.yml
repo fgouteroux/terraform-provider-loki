@@ -2,8 +2,10 @@ services:
   loki:
     image: grafana/loki:${LOKI_VERSION}
     depends_on:
-      - s3
-      - s3-loki-bucket
+      s3:
+        condition: service_healthy
+      s3-loki-bucket:
+        condition: service_completed_successfully
     ports:
       - 3100:3100
     volumes:
@@ -40,9 +42,9 @@ services:
     network_mode: service:s3
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc config host add loki http://minio:9000 minio_access_key minio_secret_key;
-      /usr/bin/mc rm -r --force loki/loki;
-      /usr/bin/mc mb loki/loki;
-      /usr/bin/mc policy download loki/loki;
+      /usr/bin/mc alias set loki http://minio:9000 minio_access_key minio_secret_key;
+      /usr/bin/mc rm -r --force loki/loki || true;
+      /usr/bin/mc mb --ignore-existing loki/loki;
+      /usr/bin/mc anonymous set download loki/loki;
       exit 0;
       "

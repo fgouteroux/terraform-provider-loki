@@ -57,7 +57,6 @@ jobs:
         os:
           - ubuntu-latest
         terraform:
-          - '0.12.*'
           - '1.5.*'
         loki-version:
           - '2.9.14'

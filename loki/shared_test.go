@@ -76,7 +76,7 @@ func testAccCheckLokiNamespaceExists(n string, name string, client *apiClient) r
 		if orgID != "" {
 			headers["X-Scope-OrgID"] = orgID
 		}
-		path := fmt.Sprintf("/%s/%s", rulesPath, namespace)
+		path := fmt.Sprintf("%s/%s", rulesPath, namespace)
 		_, err := client.sendRequest("GET", path, "", headers)
 		if err != nil {
 			return err
@@ -144,7 +144,7 @@ func testAccCheckLokiRuleDestroy(s *terraform.State) error {
 		for i := 0; i < managedGroupsCount; i++ {
 			groupName := rs.Primary.Attributes[fmt.Sprintf("managed_groups.%d", i)]
 
-			path := fmt.Sprintf("/%s/%s/%s", rulesPath, namespace, groupName)
+			path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, groupName)
 			_, err := client.sendRequest("GET", path, "", headers)
 
 			// If the error is equivalent to 404 not found, the group is destroyed.

@@ -245,6 +245,39 @@ func TestAPIClientHeaders(t *testing.T) {
 	}
 }
 
+func TestAPIClientAWSSigV4(t *testing.T) {
+	debug := false
+	address := "127.0.0.1:8090"
+	setupAPIClientServerWithSigV4Check(debug, address)
+	defer shutdownAPIClientServer()
+
+	// Set up test AWS credentials via environment variables
+	t.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+
+	/* Test with AWS SigV4 enabled */
+	opt := &apiClientOpt{
+		uri:     fmt.Sprintf("http://%s/", address),
+		headers: make(map[string]string, 0),
+		timeout: 2,
+		debug:   debug,
+		awsSigV4: &awsSigV4Config{
+			region:  "us-east-1",
+			service: "execute-api",
+		},
+	}
+	client, err := NewAPIClient(opt)
+	if err != nil {
+		t.Fatalf("api_client_test.go: Failed to init api client with SigV4, err: %v", err)
+	}
+
+	var headers map[string]string
+	_, err = client.sendRequest("GET", "/sigv4", "", headers)
+	if err != nil {
+		t.Fatalf("api_client_test.go: SigV4 request failed: %s", err)
+	}
+}
+
 func setupAPIClientServer(debug bool, address string) {
 	serverMux := http.NewServeMux()
 	serverMux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
@@ -278,4 +311,53 @@ func setupAPIClientServer(debug bool, address string) {
 
 func shutdownAPIClientServer() {
 	apiClientServer.Close()
+}
+
+func setupAPIClientServerWithSigV4Check(debug bool, address string) {
+	serverMux := http.NewServeMux()
+	serverMux.HandleFunc("/sigv4", func(w http.ResponseWriter, r *http.Request) {
+		// Check for AWS SigV4 headers
+		auth := r.Header.Get("Authorization")
+		xAmzDate := r.Header.Get("X-Amz-Date")
+
+		if auth == "" {
+			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		// Verify Authorization header starts with AWS4-HMAC-SHA256
+		if len(auth) < 16 || auth[:16] != "AWS4-HMAC-SHA256" {
+			http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
+			return
+		}
+
+		if xAmzDate == "" {
+			http.Error(w, "Missing X-Amz-Date header", http.StatusUnauthorized)
+			return
+		}
+
+		if debug {
+			log.Printf("SigV4 Auth Header: %s\n", auth)
+			log.Printf("X-Amz-Date Header: %s\n", xAmzDate)
+		}
+
+		_, _ = w.Write([]byte("SigV4 OK!"))
+	})
+
+	apiClientServer = &http.Server{
+		Addr:              address,
+		Handler:           serverMux,
+		ReadTimeout:       1 * time.Second,
+		WriteTimeout:      1 * time.Second,
+		IdleTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
+	}
+	go func() {
+		err := apiClientServer.ListenAndServe()
+		if err != nil && debug {
+			log.Println(err)
+		}
+	}()
+	/* let the server start */
+	time.Sleep(1 * time.Second)
 }

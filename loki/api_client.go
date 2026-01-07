@@ -4,8 +4,11 @@ package loki
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -15,7 +18,16 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/config"
 )
+
+type awsSigV4Config struct {
+	region  string
+	service string
+}
 
 type apiClientOpt struct {
 	uri      string
@@ -30,6 +42,7 @@ type apiClientOpt struct {
 	headers  map[string]string
 	timeout  int
 	debug    bool
+	awsSigV4 *awsSigV4Config
 }
 
 type apiClient struct {
@@ -41,6 +54,8 @@ type apiClient struct {
 	password   string
 	headers    map[string]string
 	debug      bool
+	awsSigV4   *awsSigV4Config
+	awsCreds   aws.Credentials
 }
 
 // Make a new api client for RESTful calls
@@ -116,6 +131,31 @@ func NewAPIClient(opt *apiClientOpt) (*apiClient, error) {
 		debug:    opt.debug,
 	}
 
+	// Initialize AWS SigV4 if configured
+	if opt.awsSigV4 != nil {
+		client.awsSigV4 = opt.awsSigV4
+
+		// Load AWS configuration from default credential chain
+		cfg, err := config.LoadDefaultConfig(context.Background(),
+			config.WithRegion(opt.awsSigV4.region),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS config: %w", err)
+		}
+
+		creds, err := cfg.Credentials.Retrieve(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve AWS credentials: %w", err)
+		}
+
+		client.awsCreds = creds
+
+		if opt.debug {
+			log.Printf("api_client.go: AWS SigV4 enabled for region=%s, service=%s\n",
+				opt.awsSigV4.region, opt.awsSigV4.service)
+		}
+	}
+
 	return &client, nil
 }
 
@@ -130,7 +170,8 @@ func (client *apiClient) sendRequest(method string, path, data string, headers m
 	var req *http.Request
 	var err error
 
-	buffer := bytes.NewBuffer([]byte(data))
+	bodyBytes := []byte(data)
+	buffer := bytes.NewBuffer(bodyBytes)
 
 	if data == "" {
 		req, err = http.NewRequest(method, fullURI, nil)
@@ -140,6 +181,13 @@ func (client *apiClient) sendRequest(method string, path, data string, headers m
 
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	// AWS SigV4 signing (must be done before adding other headers)
+	if client.awsSigV4 != nil {
+		if err := client.signWithSigV4(req, bodyBytes); err != nil {
+			return "", fmt.Errorf("AWS SigV4 signing failed: %w", err)
+		}
 	}
 
 	if client.token != "" {
@@ -205,4 +253,23 @@ func (client *apiClient) sendRequest(method string, path, data string, headers m
 	}
 
 	return body, nil
+}
+
+// signWithSigV4 signs the HTTP request using AWS Signature Version 4
+func (client *apiClient) signWithSigV4(req *http.Request, body []byte) error {
+	signer := v4.NewSigner()
+
+	// Calculate payload hash
+	hash := sha256.Sum256(body)
+	payloadHash := hex.EncodeToString(hash[:])
+
+	return signer.SignHTTP(
+		context.Background(),
+		client.awsCreds,
+		req,
+		payloadHash,
+		client.awsSigV4.service,
+		client.awsSigV4.region,
+		time.Now(),
+	)
 }

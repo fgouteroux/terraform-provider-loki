@@ -90,6 +90,28 @@ func Provider(version string) func() *schema.Provider {
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_DEBUG", true),
 					Description: "Enable debug mode to trace requests executed.",
 				},
+				"aws_sigv4": {
+					Type:        schema.TypeList,
+					Optional:    true,
+					MaxItems:    1,
+					Description: "AWS Signature Version 4 authentication configuration. When configured, requests will be signed using AWS credentials from the default credential chain (environment variables, shared credentials file, IAM role, etc.).",
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"region": {
+								Type:        schema.TypeString,
+								Optional:    true,
+								Description: "AWS region for signing requests. Defaults to AWS_REGION or AWS_DEFAULT_REGION environment variable.",
+								DefaultFunc: schema.MultiEnvDefaultFunc([]string{"AWS_REGION", "AWS_DEFAULT_REGION"}, nil),
+							},
+							"service": {
+								Type:        schema.TypeString,
+								Optional:    true,
+								Default:     "execute-api",
+								Description: "AWS service name for signing. Defaults to 'execute-api' for API Gateway.",
+							},
+						},
+					},
+				},
 			},
 			DataSourcesMap: map[string]*schema.Resource{
 				"loki_rule_group_alerting":  dataSourcelokiRuleGroupAlerting(),
@@ -132,6 +154,18 @@ func providerConfigure(d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		headers:  headers,
 		timeout:  d.Get("timeout").(int),
 		debug:    d.Get("debug").(bool),
+	}
+
+	// AWS SigV4 configuration
+	if v, ok := d.GetOk("aws_sigv4"); ok {
+		sigv4List := v.([]interface{})
+		if len(sigv4List) > 0 {
+			sigv4Map := sigv4List[0].(map[string]interface{})
+			opt.awsSigV4 = &awsSigV4Config{
+				region:  sigv4Map["region"].(string),
+				service: sigv4Map["service"].(string),
+			}
+		}
 	}
 
 	client, err := NewAPIClient(opt)

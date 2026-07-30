@@ -56,6 +56,55 @@ func TestProvider(t *testing.T) {
 	}
 }
 
+// Regression test: some Loki-compatible gateways (e.g. Scaleway Cockpit's
+// ruler API) reject any request carrying an X-Scope-OrgID header at all,
+// regardless of value, when multi-tenancy isn't in use. The provider-level
+// org_id used to be Required and was always sent as that header, even when
+// empty — this asserts it's now omitted when org_id isn't set.
+func TestProviderConfigureOmitsEmptyOrgID(t *testing.T) {
+	// provider_test.go's package-level getSetEnv("LOKI_ORG_ID", "mytenant")
+	// sets this env var for the whole test binary as a side effect — isolate
+	// it here so org_id's EnvDefaultFunc doesn't mask an unset value.
+	t.Setenv("LOKI_ORG_ID", "")
+
+	p := Provider("dev")()
+	raw := map[string]interface{}{
+		"uri": "http://localhost:3100",
+	}
+	if diags := p.Configure(context.Background(), terraform.NewResourceConfigRaw(raw)); diags.HasError() {
+		t.Fatalf("unexpected error configuring provider: %v", diags)
+	}
+
+	client, ok := p.Meta().(*apiClient)
+	if !ok {
+		t.Fatalf("expected *apiClient, got %T", p.Meta())
+	}
+	if got, ok := client.headers["X-Scope-OrgID"]; ok {
+		t.Fatalf("expected no X-Scope-OrgID header when org_id is unset, got %q", got)
+	}
+}
+
+// Companion to TestProviderConfigureOmitsEmptyOrgID: a configured org_id
+// should still be sent, preserving normal multi-tenant behavior.
+func TestProviderConfigureSetsOrgID(t *testing.T) {
+	p := Provider("dev")()
+	raw := map[string]interface{}{
+		"uri":    "http://localhost:3100",
+		"org_id": "mytenant",
+	}
+	if diags := p.Configure(context.Background(), terraform.NewResourceConfigRaw(raw)); diags.HasError() {
+		t.Fatalf("unexpected error configuring provider: %v", diags)
+	}
+
+	client, ok := p.Meta().(*apiClient)
+	if !ok {
+		t.Fatalf("expected *apiClient, got %T", p.Meta())
+	}
+	if got := client.headers["X-Scope-OrgID"]; got != "mytenant" {
+		t.Fatalf("expected X-Scope-OrgID=%q, got %q", "mytenant", got)
+	}
+}
+
 // testAccPreCheck verifies required provider testing configuration. It should
 // be present in every acceptance test.
 //

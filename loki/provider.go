@@ -21,7 +21,7 @@ func Provider(version string) func() *schema.Provider {
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_URI", nil),
 					Description: "loki base url",
 				},
-				"org_id": {
+				orgIDKey: {
 					Type:        schema.TypeString,
 					Required:    true,
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_ORG_ID", nil),
@@ -139,7 +139,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 			headers[k] = v.(string)
 		}
 	}
-	headers["X-Scope-OrgID"] = d.Get("org_id").(string)
+	headers["X-Scope-OrgID"] = d.Get(orgIDKey).(string)
 
 	opt := &apiClientOpt{
 		token:    d.Get("token").(string),

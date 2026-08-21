@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -337,8 +338,8 @@ func setupAPIClientServerWithSigV4Check(debug bool, address string) {
 		}
 
 		if debug {
-			log.Printf("SigV4 Auth Header: %s\n", auth)
-			log.Printf("X-Amz-Date Header: %s\n", xAmzDate)
+			log.Printf("SigV4 Auth Header: %s\n", strconv.Quote(auth))
+			log.Printf("X-Amz-Date Header: %s\n", strconv.Quote(xAmzDate))
 		}
 
 		_, _ = w.Write([]byte("SigV4 OK!"))

@@ -15,13 +15,13 @@ func dataSourcelokiRuleGroupRecording() *schema.Resource {
 		ReadContext: dataSourcelokiRuleGroupRecordingRead,
 
 		Schema: map[string]*schema.Schema{
-			"org_id": {
+			orgIDKey: {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Description: "The Organization ID. If not set, the Org ID defined in the provider block will be used.",
+				Description: orgIDDescription,
 			},
-			"namespace": {
+			namespaceKey: {
 				Type:        schema.TypeString,
 				Description: "Recording Rule group namespace",
 				ForceNew:    true,
@@ -35,7 +35,7 @@ func dataSourcelokiRuleGroupRecording() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validateGroupRuleName,
 			},
-			"interval": {
+			intervalKey: {
 				Type:        schema.TypeString,
 				Description: "Recording Rule group interval",
 				Computed:    true,
@@ -53,7 +53,7 @@ func dataSourcelokiRuleGroupRecording() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"labels": {
+						labelsKey: {
 							Type:        schema.TypeMap,
 							Description: "Alerting Rule labels",
 							Elem:        &schema.Schema{Type: schema.TypeString},
@@ -70,8 +70,8 @@ func dataSourcelokiRuleGroupRecording() *schema.Resource {
 func dataSourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 
 	id := fmt.Sprintf("%s/%s", namespace, name)
 
@@ -103,7 +103,7 @@ func dataSourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.Resourc
 	if err := d.Set("rule", flattenRecordingRules(data.Rules)); err != nil {
 		return diag.FromErr(err)
 	}
-	if err := d.Set("interval", data.Interval); err != nil {
+	if err := d.Set(intervalKey, data.Interval); err != nil {
 		return diag.FromErr(err)
 	}
 

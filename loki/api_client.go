@@ -16,6 +16,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -99,7 +100,9 @@ func NewAPIClient(opt *apiClientOpt) (*apiClient, error) {
 			}
 		}
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("no valid PEM certificate found in the provided ca")
+		}
 		tlsConfig.RootCAs = caCertPool
 	}
 
@@ -109,7 +112,9 @@ func NewAPIClient(opt *apiClientOpt) (*apiClient, error) {
 	}
 
 	if opt.proxyURL != "" {
-		log.Printf("api_client.go: Using proxy: %s\n", opt.proxyURL)
+		if opt.debug {
+			log.Printf("api_client.go: Using proxy: %s\n", opt.proxyURL)
+		}
 		proxy, err := url.Parse(opt.proxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing proxy url: %s", err)
@@ -159,6 +164,16 @@ func NewAPIClient(opt *apiClientOpt) (*apiClient, error) {
 	return &client, nil
 }
 
+// redactHeaderRegexp matches the header lines of an httputil dump whose value
+// is a credential. Anything matched keeps its name and loses its value.
+var redactHeaderRegexp = regexp.MustCompile(`(?im)^((?:Authorization|Proxy-Authorization|X-Amz-Security-Token|Cookie|Set-Cookie):).*$`)
+
+// redactCredentials strips credential values out of a request or response dump
+// before it reaches the log.
+func redactCredentials(dump string) string {
+	return redactHeaderRegexp.ReplaceAllString(dump, "$1 [REDACTED]")
+}
+
 /*
 Helper function that handles sending/receiving and handling
 
@@ -180,7 +195,7 @@ func (client *apiClient) sendRequest(method string, path, data string, headers m
 	}
 
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("cannot build %s request for %s: %w", method, fullURI, err)
 	}
 
 	// AWS SigV4 signing (must be done before adding other headers)
@@ -214,12 +229,12 @@ func (client *apiClient) sendRequest(method string, path, data string, headers m
 	}
 
 	if client.debug {
-		reqDump, err := httputil.DumpRequestOut(req, true)
+		reqDump, err := httputil.DumpRequestOut(req, false)
 		if err != nil {
-			log.Fatal(err)
+			return "", fmt.Errorf("cannot dump request for %s: %w", fullURI, err)
 		}
 
-		log.Printf("REQUEST:\n%s", string(reqDump))
+		log.Printf("REQUEST:\n%s", redactCredentials(string(reqDump)))
 	}
 
 	resp, err := client.httpClient.Do(req)
@@ -232,12 +247,12 @@ func (client *apiClient) sendRequest(method string, path, data string, headers m
 	}
 
 	if client.debug {
-		respDump, err := httputil.DumpResponse(resp, true)
+		respDump, err := httputil.DumpResponse(resp, false)
 		if err != nil {
-			log.Fatal(err)
+			return "", fmt.Errorf("cannot dump response for %s: %w", fullURI, err)
 		}
 
-		log.Printf("RESPONSE:\n%s", string(respDump))
+		log.Printf("RESPONSE:\n%s", redactCredentials(string(respDump)))
 	}
 
 	bodyBytes, err2 := io.ReadAll(resp.Body)

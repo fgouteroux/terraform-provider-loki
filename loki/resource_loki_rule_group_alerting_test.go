@@ -1,12 +1,9 @@
 package loki
 
 import (
-	"fmt"
-	"os"
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
@@ -186,13 +183,7 @@ func TestAccResourceRuleGroupAlerting_Operator(t *testing.T) {
 	--- FAIL: TestAccResourceRuleGroupAlerting_Operator (0.46s)
 
 	*/
-	currentVersion, _ := version.NewVersion(os.Getenv("LOKI_VERSION"))
-	minVersion, _ := version.NewVersion("3.0.0")
-
-	if currentVersion.LessThan(minVersion) {
-		fmt.Printf("Skipping expr with OR operator test (current version '%s' is less than '%s')\n", currentVersion, minVersion)
-		return
-	}
+	skipBelowLokiVersion(t, "3.0.0")
 
 	// Init client
 	client, err := NewAPIClient(setupClient())

@@ -87,8 +87,8 @@ func Provider(version string) func() *schema.Provider {
 				"debug": {
 					Type:        schema.TypeBool,
 					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("LOKI_DEBUG", true),
-					Description: "Enable debug mode to trace requests executed.",
+					DefaultFunc: schema.EnvDefaultFunc("LOKI_DEBUG", false),
+					Description: "Enable debug mode to trace requests executed. Credential headers are redacted, but the traces are still verbose; off by default.",
 				},
 				"aws_sigv4": {
 					Type:        schema.TypeList,
@@ -125,15 +125,15 @@ func Provider(version string) func() *schema.Provider {
 			},
 		}
 		p.ConfigureContextFunc = func(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
-			p.UserAgent("terraform-provider-loki", version)
-			return providerConfigure(d)
+			return providerConfigure(d, p.UserAgent("terraform-provider-loki", version))
 		}
 		return p
 	}
 }
 
-func providerConfigure(d *schema.ResourceData) (interface{}, diag.Diagnostics) {
+func providerConfigure(d *schema.ResourceData, userAgent string) (interface{}, diag.Diagnostics) {
 	headers := make(map[string]string)
+	headers["User-Agent"] = userAgent
 	if initHeaders := d.Get("headers"); initHeaders != nil {
 		for k, v := range initHeaders.(map[string]interface{}) {
 			headers[k] = v.(string)

@@ -6,4 +6,7 @@ const (
 	namespaceKey     = "namespace"
 	intervalKey      = "interval"
 	labelsKey        = "labels"
+
+	contentTypeHeader = "Content-Type"
+	contentTypeYAML   = "application/yaml"
 )

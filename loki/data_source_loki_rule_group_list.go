@@ -3,7 +3,6 @@ package loki
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -117,7 +116,7 @@ func dataSourcelokiRuleGroupListAll(ctx context.Context, d *schema.ResourceData,
 
 	err = handleHTTPError(err, "Cannot list rules")
 	if err != nil {
-		if strings.Contains(err.Error(), "response code '404'") {
+		if isNotFound(err) {
 			d.SetId("")
 			return nil
 		}

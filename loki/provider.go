@@ -25,7 +25,7 @@ func Provider(version string) func() *schema.Provider {
 					Type:        schema.TypeString,
 					Required:    true,
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_ORG_ID", nil),
-					Description: "The default organization id to operate on within loki. For resources that have an org_id attribute, the resource-level attribute has priority. May alternatively be set via the LOKI_ORG_ID environment variable.",
+					Description: "The default organization id to operate on within loki. Set it to an empty string to send no X-Scope-OrgID header at all, for Loki-compatible backends that reject it. For resources that have an org_id attribute, the resource-level attribute has priority. May alternatively be set via the LOKI_ORG_ID environment variable.",
 				},
 				"token": {
 					Type:        schema.TypeString,
@@ -139,7 +139,10 @@ func providerConfigure(d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 			headers[k] = v.(string)
 		}
 	}
-	headers["X-Scope-OrgID"] = d.Get(orgIDKey).(string)
+	// Don't send an empty X-Scope-OrgID header value.
+	if orgID := d.Get(orgIDKey).(string); orgID != "" {
+		headers["X-Scope-OrgID"] = orgID
+	}
 
 	opt := &apiClientOpt{
 		token:    d.Get("token").(string),

@@ -81,7 +81,7 @@ AWS credentials are loaded from the default credential chain:
 
 ### Required
 
-- `org_id` (String) The default organization id to operate on within loki. For resources that have an org_id attribute, the resource-level attribute has priority. May alternatively be set via the LOKI_ORG_ID environment variable.
+- `org_id` (String) The default organization id to operate on within loki. Set it to an empty string to send no X-Scope-OrgID header at all, for Loki-compatible backends that reject it. For resources that have an org_id attribute, the resource-level attribute has priority. May alternatively be set via the LOKI_ORG_ID environment variable.
 - `uri` (String) loki base url
 
 ### Optional

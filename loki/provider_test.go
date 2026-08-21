@@ -56,6 +56,49 @@ func TestProvider(t *testing.T) {
 	}
 }
 
+// Some Loki-compatible gateways reject any request carrying an X-Scope-OrgID
+// header, whatever its value, when multi-tenancy is not in use. Setting org_id
+// to an empty string must omit the header entirely rather than send it empty.
+func TestProviderConfigureOmitsEmptyOrgID(t *testing.T) {
+	p := Provider("dev")()
+	raw := map[string]interface{}{
+		"uri":    lokiURI,
+		orgIDKey: "",
+	}
+	if diags := p.Configure(context.Background(), terraform.NewResourceConfigRaw(raw)); diags.HasError() {
+		t.Fatalf("unexpected error configuring provider: %v", diags)
+	}
+
+	client, ok := p.Meta().(*apiClient)
+	if !ok {
+		t.Fatalf("expected *apiClient, got %T", p.Meta())
+	}
+	if got, ok := client.headers["X-Scope-OrgID"]; ok {
+		t.Fatalf("expected no X-Scope-OrgID header when org_id is empty, got %q", got)
+	}
+}
+
+// Companion to TestProviderConfigureOmitsEmptyOrgID: a configured org_id must
+// still be sent, preserving normal multi-tenant behavior.
+func TestProviderConfigureSetsOrgID(t *testing.T) {
+	p := Provider("dev")()
+	raw := map[string]interface{}{
+		"uri":    lokiURI,
+		orgIDKey: lokiOrgID,
+	}
+	if diags := p.Configure(context.Background(), terraform.NewResourceConfigRaw(raw)); diags.HasError() {
+		t.Fatalf("unexpected error configuring provider: %v", diags)
+	}
+
+	client, ok := p.Meta().(*apiClient)
+	if !ok {
+		t.Fatalf("expected *apiClient, got %T", p.Meta())
+	}
+	if got := client.headers["X-Scope-OrgID"]; got != lokiOrgID {
+		t.Fatalf("expected X-Scope-OrgID=%q, got %q", lokiOrgID, got)
+	}
+}
+
 // testAccPreCheck verifies required provider testing configuration. It should
 // be present in every acceptance test.
 //

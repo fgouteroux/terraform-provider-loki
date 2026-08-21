@@ -23,9 +23,9 @@ func Provider(version string) func() *schema.Provider {
 				},
 				orgIDKey: {
 					Type:        schema.TypeString,
-					Optional:    true,
+					Required:    true,
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_ORG_ID", nil),
-					Description: "The default organization id to operate on within loki. When unset (or empty), no X-Scope-OrgID header is sent — matching how resource-level org_id already behaves. For resources that have an org_id attribute, the resource-level attribute has priority. May alternatively be set via the LOKI_ORG_ID environment variable.",
+					Description: "The default organization id to operate on within loki. Set it to an empty string to send no X-Scope-OrgID header at all, for Loki-compatible backends that reject it. For resources that have an org_id attribute, the resource-level attribute has priority. May alternatively be set via the LOKI_ORG_ID environment variable.",
 				},
 				"token": {
 					Type:        schema.TypeString,
@@ -139,11 +139,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 			headers[k] = v.(string)
 		}
 	}
-	// Match resource-level org_id handling (e.g.
-	// resourcelokiRuleGroupAlertingCreate): only send X-Scope-OrgID when a
-	// tenant is actually configured. Some Loki-compatible gateways (e.g.
-	// Scaleway Cockpit) reject any request carrying this header at all,
-	// regardless of value, when multi-tenancy isn't in use.
+	// Don't send an empty X-Scope-OrgID header value.
 	if orgID := d.Get(orgIDKey).(string); orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
 	}

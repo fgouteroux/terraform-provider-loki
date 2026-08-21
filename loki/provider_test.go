@@ -56,20 +56,14 @@ func TestProvider(t *testing.T) {
 	}
 }
 
-// Regression test: some Loki-compatible gateways (e.g. Scaleway Cockpit's
-// ruler API) reject any request carrying an X-Scope-OrgID header at all,
-// regardless of value, when multi-tenancy isn't in use. The provider-level
-// org_id used to be Required and was always sent as that header, even when
-// empty — this asserts it's now omitted when org_id isn't set.
+// Some Loki-compatible gateways reject any request carrying an X-Scope-OrgID
+// header, whatever its value, when multi-tenancy is not in use. Setting org_id
+// to an empty string must omit the header entirely rather than send it empty.
 func TestProviderConfigureOmitsEmptyOrgID(t *testing.T) {
-	// provider_test.go's package-level getSetEnv("LOKI_ORG_ID", "mytenant")
-	// sets this env var for the whole test binary as a side effect — isolate
-	// it here so org_id's EnvDefaultFunc doesn't mask an unset value.
-	t.Setenv("LOKI_ORG_ID", "")
-
 	p := Provider("dev")()
 	raw := map[string]interface{}{
-		"uri": "http://localhost:3100",
+		"uri":    lokiURI,
+		orgIDKey: "",
 	}
 	if diags := p.Configure(context.Background(), terraform.NewResourceConfigRaw(raw)); diags.HasError() {
 		t.Fatalf("unexpected error configuring provider: %v", diags)
@@ -80,17 +74,17 @@ func TestProviderConfigureOmitsEmptyOrgID(t *testing.T) {
 		t.Fatalf("expected *apiClient, got %T", p.Meta())
 	}
 	if got, ok := client.headers["X-Scope-OrgID"]; ok {
-		t.Fatalf("expected no X-Scope-OrgID header when org_id is unset, got %q", got)
+		t.Fatalf("expected no X-Scope-OrgID header when org_id is empty, got %q", got)
 	}
 }
 
-// Companion to TestProviderConfigureOmitsEmptyOrgID: a configured org_id
-// should still be sent, preserving normal multi-tenant behavior.
+// Companion to TestProviderConfigureOmitsEmptyOrgID: a configured org_id must
+// still be sent, preserving normal multi-tenant behavior.
 func TestProviderConfigureSetsOrgID(t *testing.T) {
 	p := Provider("dev")()
 	raw := map[string]interface{}{
-		"uri":    "http://localhost:3100",
-		"org_id": "mytenant",
+		"uri":    lokiURI,
+		orgIDKey: lokiOrgID,
 	}
 	if diags := p.Configure(context.Background(), terraform.NewResourceConfigRaw(raw)); diags.HasError() {
 		t.Fatalf("unexpected error configuring provider: %v", diags)
@@ -100,8 +94,8 @@ func TestProviderConfigureSetsOrgID(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *apiClient, got %T", p.Meta())
 	}
-	if got := client.headers["X-Scope-OrgID"]; got != "mytenant" {
-		t.Fatalf("expected X-Scope-OrgID=%q, got %q", "mytenant", got)
+	if got := client.headers["X-Scope-OrgID"]; got != lokiOrgID {
+		t.Fatalf("expected X-Scope-OrgID=%q, got %q", lokiOrgID, got)
 	}
 }
 

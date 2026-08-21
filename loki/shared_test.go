@@ -112,6 +112,29 @@ func testAccCheckLokiNamespaceExists(n string, name string, client *apiClient) r
 	}
 }
 
+// testAccCheckLokiRuleGroupGone asserts a rule group is absent from Loki itself,
+// not merely absent from the Terraform state: state can say a group is no longer
+// managed while the group is still sitting in the backend.
+func testAccCheckLokiRuleGroupGone(namespace, name string, client *apiClient) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		headers := make(map[string]string)
+		if orgID := os.Getenv("LOKI_ORG_ID"); orgID != "" {
+			headers["X-Scope-OrgID"] = orgID
+		}
+
+		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
+		_, err := client.sendRequest("GET", path, "", headers)
+		if err == nil {
+			return fmt.Errorf("rule group %s/%s still exists in loki", namespace, name)
+		}
+		if !isNotFound(err) {
+			return err
+		}
+
+		return nil
+	}
+}
+
 func testAccCheckLokiRuleGroupDestroy(s *terraform.State) error {
 	// retrieve the connection established in Provider configuration
 	client := testAccProvider.Meta().(*apiClient)

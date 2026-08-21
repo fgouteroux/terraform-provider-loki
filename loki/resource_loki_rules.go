@@ -1,9 +1,12 @@
 package loki
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -22,27 +25,43 @@ type RuleGroups struct {
 	Groups []RuleGroup `yaml:"groups"`
 }
 
-// RuleGroup represents a single rule group
+// RuleGroup represents a single rule group. It models the whole surface Loki's
+// ruler accepts (Prometheus rulefmt), not just the parts the provider acts on:
+// the configuration is decoded into this type and marshalled back before being
+// sent, so any field missing here would be silently stripped from the user's
+// file. Fields Loki parses but discards are listed in droppedGroupFields.
 type RuleGroup struct {
-	Name     string `yaml:"name"`
-	Interval string `yaml:"interval,omitempty"`
-	Rules    []Rule `yaml:"rules"`
+	Name        string            `yaml:"name"`
+	Interval    string            `yaml:"interval,omitempty"`
+	Limit       int               `yaml:"limit,omitempty"`
+	QueryOffset string            `yaml:"query_offset,omitempty"`
+	Labels      map[string]string `yaml:"labels,omitempty"`
+	Rules       []Rule            `yaml:"rules"`
 }
 
-// Rule represents both alerting and recording rules
+// Rule represents both alerting and recording rules. See RuleGroup on why every
+// accepted field is modelled.
 type Rule struct {
 	// Common fields
 	Expr   string            `yaml:"expr"`
 	Labels map[string]string `yaml:"labels,omitempty"`
 
 	// Alerting rule fields
-	Alert       string            `yaml:"alert,omitempty"`
-	For         string            `yaml:"for,omitempty"`
-	Annotations map[string]string `yaml:"annotations,omitempty"`
+	Alert         string            `yaml:"alert,omitempty"`
+	For           string            `yaml:"for,omitempty"`
+	KeepFiringFor string            `yaml:"keep_firing_for,omitempty"`
+	Annotations   map[string]string `yaml:"annotations,omitempty"`
 
 	// Recording rule fields
 	Record string `yaml:"record,omitempty"`
 }
+
+// Loki's ruler accepts these keys and answers 202, then drops them on the way
+// to storage: they are absent from rulespb.RuleGroupDesc/RuleDesc, so they
+// never reach evaluation. Accepting them silently would be a lie, and rejecting
+// a valid Prometheus file outright is unhelpful, so they warn.
+var droppedGroupFields = []string{"query_offset", labelsKey}
+var droppedRuleFields = []string{"keep_firing_for"}
 
 // resourcelokiRules creates the enhanced multi-group rules resource
 func resourcelokiRules() *schema.Resource {
@@ -185,72 +204,53 @@ func resourcelokiRules() *schema.Resource {
 				return err
 			}
 
-			// Calculate managed groups during plan phase for better diff output
-			if diff.HasChange("content") || diff.HasChange("content_file") || diff.HasChange("only_groups") || diff.HasChange("ignore_groups") || diff.Id() == "" {
-				// Parse the configuration to determine what will be managed
-				var ruleGroups RuleGroups
-				var err error
+			// Recomputed on every plan, not just when one of the inputs changed:
+			// editing a content_file in place changes no attribute, and a group
+			// deleted out of band only shows up in the refreshed content_hash.
+			// Gating this on HasChange made both produce an empty plan.
+			ruleGroups, err := parseRuleGroupsForDiff(diff)
+			if err != nil || len(ruleGroups.Groups) == 0 {
+				return nil //nolint:nilerr
+			}
 
-				if content := diff.Get("content").(string); content != "" {
-					err = yaml.Unmarshal([]byte(content), &ruleGroups)
-				} else if contentFile := diff.Get("content_file").(string); contentFile != "" {
-					data, readErr := os.ReadFile(contentFile)
-					if readErr == nil {
-						err = yaml.Unmarshal(data, &ruleGroups)
+			only, _ := diff.Get("only_groups").(*schema.Set)
+			ignore, _ := diff.Get("ignore_groups").(*schema.Set)
+			managedGroups := selectManagedGroups(ruleGroups, only, ignore)
+
+			// Set the computed fields so they appear in the plan
+			if err := diff.SetNew("managed_groups", managedGroups); err != nil {
+				return err
+			}
+			if err := diff.SetNew("groups_count", len(managedGroups)); err != nil {
+				return err
+			}
+
+			totalRules := 0
+			var ruleNames []string
+			for _, group := range ruleGroups.Groups {
+				if !contains(managedGroups, group.Name) {
+					continue
+				}
+				totalRules += len(group.Rules)
+				for _, rule := range group.Rules {
+					if rule.Alert != "" {
+						ruleNames = append(ruleNames, rule.Alert)
+					} else if rule.Record != "" {
+						ruleNames = append(ruleNames, rule.Record)
 					}
 				}
+			}
+			if err := diff.SetNew("total_rules", totalRules); err != nil {
+				return err
+			}
+			if err := diff.SetNew("rule_names", ruleNames); err != nil {
+				return err
+			}
 
-				if err == nil && len(ruleGroups.Groups) > 0 {
-					// Determine which groups will be managed
-					allGroupNames := make([]string, len(ruleGroups.Groups))
-					for i, group := range ruleGroups.Groups {
-						allGroupNames[i] = group.Name
-					}
-
-					var managedGroups []string
-					if onlyGroups := diff.Get("only_groups").(*schema.Set); onlyGroups != nil && onlyGroups.Len() > 0 {
-						for _, name := range onlyGroups.List() {
-							groupName := name.(string)
-							if contains(allGroupNames, groupName) {
-								managedGroups = append(managedGroups, groupName)
-							}
-						}
-					} else if ignoreGroups := diff.Get("ignore_groups").(*schema.Set); ignoreGroups != nil && ignoreGroups.Len() > 0 {
-						var ignored []string
-						for _, name := range ignoreGroups.List() {
-							ignored = append(ignored, name.(string))
-						}
-						for _, groupName := range allGroupNames {
-							if !contains(ignored, groupName) {
-								managedGroups = append(managedGroups, groupName)
-							}
-						}
-					} else {
-						managedGroups = allGroupNames
-					}
-
-					// Set the computed fields so they appear in the plan
-					diff.SetNew("managed_groups", managedGroups)
-					diff.SetNew("groups_count", len(managedGroups))
-
-					// Calculate total rules and collect rule names
-					totalRules := 0
-					var ruleNames []string
-					for _, group := range ruleGroups.Groups {
-						if contains(managedGroups, group.Name) {
-							totalRules += len(group.Rules)
-							for _, rule := range group.Rules {
-								if rule.Alert != "" {
-									ruleNames = append(ruleNames, rule.Alert)
-								} else if rule.Record != "" {
-									ruleNames = append(ruleNames, rule.Record)
-								}
-							}
-						}
-					}
-					diff.SetNew("total_rules", totalRules)
-					diff.SetNew("rule_names", ruleNames)
-				}
+			// The hash is what makes an edited content_file, or a group deleted
+			// behind Terraform's back, visible as a diff.
+			if err := diff.SetNew("content_hash", calculateContentHash(ruleGroups, managedGroups)); err != nil {
+				return err
 			}
 
 			return nil
@@ -267,11 +267,12 @@ func validateYAMLContent(val interface{}, key string) (warns []string, errs []er
 		return
 	}
 
-	var ruleGroups RuleGroups
-	if err := yaml.Unmarshal([]byte(content), &ruleGroups); err != nil {
+	ruleGroups, err := decodeRuleGroups([]byte(content))
+	if err != nil {
 		errs = append(errs, fmt.Errorf("%q contains invalid YAML: %v", key, err))
 		return
 	}
+	warns = append(warns, warnDroppedFields([]byte(content))...)
 
 	if err := validateRuleGroupsContent(ruleGroups); err != nil {
 		errs = append(errs, fmt.Errorf("%q validation failed: %v", key, err))
@@ -411,7 +412,65 @@ func validateRuleGroupsConfiguration(diff *schema.ResourceDiff) error {
 		return fmt.Errorf("'content' and 'content_file' are mutually exclusive")
 	}
 
+	return validateGroupFilters(diff)
+}
+
+// validateGroupFilters rejects names in only_groups/ignore_groups that no group
+// in the configuration carries. Unknown names used to be dropped silently; now
+// that removing a group actually deletes it from Loki, a typo in only_groups
+// would mean "manage nothing, delete everything that was managed".
+func validateGroupFilters(diff *schema.ResourceDiff) error {
+	ruleGroups, err := parseRuleGroupsForDiff(diff)
+	if err != nil || len(ruleGroups.Groups) == 0 {
+		// Content problems are reported by the content validators themselves.
+		return nil //nolint:nilerr
+	}
+
+	declared := make([]string, len(ruleGroups.Groups))
+	for i, group := range ruleGroups.Groups {
+		declared[i] = group.Name
+	}
+
+	only, _ := diff.Get("only_groups").(*schema.Set)
+	ignore, _ := diff.Get("ignore_groups").(*schema.Set)
+	return validateGroupFilterNames(declared, only, ignore)
+}
+
+func validateGroupFilterNames(declared []string, only, ignore *schema.Set) error {
+	for _, filter := range []struct {
+		key string
+		set *schema.Set
+	}{{"only_groups", only}, {"ignore_groups", ignore}} {
+		if filter.set == nil {
+			continue
+		}
+		for _, raw := range filter.set.List() {
+			name := raw.(string)
+			if !contains(declared, name) {
+				return fmt.Errorf(
+					"%s contains %q, which is not a rule group in the configuration (declared groups: %s)",
+					filter.key, name, strings.Join(declared, ", "))
+			}
+		}
+	}
+
 	return nil
+}
+
+// parseRuleGroupsForDiff decodes the configured rule groups from a diff, which
+// unlike ResourceData is what CustomizeDiff has to work with.
+func parseRuleGroupsForDiff(diff *schema.ResourceDiff) (RuleGroups, error) {
+	if content := diff.Get("content").(string); content != "" {
+		return decodeRuleGroups([]byte(content))
+	}
+	if contentFile := diff.Get("content_file").(string); contentFile != "" {
+		data, err := os.ReadFile(contentFile)
+		if err != nil {
+			return RuleGroups{}, err
+		}
+		return decodeRuleGroups(data)
+	}
+	return RuleGroups{}, fmt.Errorf("no rule configuration provided")
 }
 
 // Resource CRUD operations
@@ -521,7 +580,12 @@ func resourcelokiRulesUpdate(ctx context.Context, d *schema.ResourceData, m inte
 		return diag.FromErr(err)
 	}
 
-	oldManagedGroups := d.Get("managed_groups").([]interface{})
+	// CustomizeDiff already called SetNew("managed_groups", ...), so d.Get here
+	// returns the new value and difference(old, new) was always empty: removing
+	// a group from the configuration never deleted it from Loki. GetChange is
+	// what actually reaches the prior state.
+	oldManagedGroupsRaw, _ := d.GetChange("managed_groups")
+	oldManagedGroups := oldManagedGroupsRaw.([]interface{})
 	newManagedGroups := determineGroupsToManage(newRuleGroups, d)
 
 	// Convert old managed groups to string slice
@@ -607,19 +671,37 @@ func resourcelokiRulesImport(ctx context.Context, d *schema.ResourceData, m inte
 
 // Helper functions
 
-func parseRuleGroupsConfiguration(d *schema.ResourceData) (RuleGroups, error) {
+// decodeRuleGroups parses rule groups with KnownFields enabled, so a key the
+// provider does not model is reported instead of being dropped on the floor.
+func decodeRuleGroups(data []byte) (RuleGroups, error) {
 	var ruleGroups RuleGroups
 
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&ruleGroups); err != nil {
+		if errors.Is(err, io.EOF) {
+			return ruleGroups, fmt.Errorf("rule configuration is empty")
+		}
+		return ruleGroups, err
+	}
+
+	return ruleGroups, nil
+}
+
+func parseRuleGroupsConfiguration(d *schema.ResourceData) (RuleGroups, error) {
+	var ruleGroups RuleGroups
+	var err error
+
 	if content := d.Get("content").(string); content != "" {
-		if err := yaml.Unmarshal([]byte(content), &ruleGroups); err != nil {
+		if ruleGroups, err = decodeRuleGroups([]byte(content)); err != nil {
 			return ruleGroups, fmt.Errorf("failed to parse YAML content: %w", err)
 		}
 	} else if contentFile := d.Get("content_file").(string); contentFile != "" {
-		data, err := os.ReadFile(contentFile)
-		if err != nil {
-			return ruleGroups, fmt.Errorf("failed to read file %s: %w", contentFile, err)
+		data, readErr := os.ReadFile(contentFile)
+		if readErr != nil {
+			return ruleGroups, fmt.Errorf("failed to read file %s: %w", contentFile, readErr)
 		}
-		if err := yaml.Unmarshal(data, &ruleGroups); err != nil {
+		if ruleGroups, err = decodeRuleGroups(data); err != nil {
 			return ruleGroups, fmt.Errorf("failed to parse YAML file %s: %w", contentFile, err)
 		}
 	} else {
@@ -629,16 +711,70 @@ func parseRuleGroupsConfiguration(d *schema.ResourceData) (RuleGroups, error) {
 	return ruleGroups, validateRuleGroupsContent(ruleGroups)
 }
 
+// warnDroppedFields reports the fields Loki accepts and then discards, so the
+// user hears about it at plan time rather than wondering why the rule behaves
+// differently than the file says.
+func warnDroppedFields(data []byte) []string {
+	var raw struct {
+		Groups []map[string]interface{} `yaml:"groups"`
+	}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+
+	var warns []string
+	seen := map[string]bool{}
+	report := func(field string) {
+		if seen[field] {
+			return
+		}
+		seen[field] = true
+		warns = append(warns, fmt.Sprintf(
+			"%q is accepted by Loki's ruler but discarded before evaluation, so it will have no effect", field))
+	}
+
+	for _, group := range raw.Groups {
+		for _, field := range droppedGroupFields {
+			if _, ok := group[field]; ok {
+				report(field)
+			}
+		}
+		rules, _ := group["rules"].([]interface{})
+		for _, r := range rules {
+			rule, ok := r.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			for _, field := range droppedRuleFields {
+				if _, ok := rule[field]; ok {
+					report(field)
+				}
+			}
+		}
+	}
+
+	return warns
+}
+
 func determineGroupsToManage(ruleGroups RuleGroups, d *schema.ResourceData) []string {
+	only, _ := d.Get("only_groups").(*schema.Set)
+	ignore, _ := d.Get("ignore_groups").(*schema.Set)
+	return selectManagedGroups(ruleGroups, only, ignore)
+}
+
+// selectManagedGroups applies only_groups/ignore_groups to the declared groups.
+// CustomizeDiff and the CRUD functions both go through it, so the plan and the
+// apply cannot disagree on what is managed.
+func selectManagedGroups(ruleGroups RuleGroups, only, ignore *schema.Set) []string {
 	allGroupNames := make([]string, len(ruleGroups.Groups))
 	for i, group := range ruleGroups.Groups {
 		allGroupNames[i] = group.Name
 	}
 
 	// If specific groups are named, use only those
-	if onlyGroups := d.Get("only_groups").(*schema.Set); onlyGroups.Len() > 0 {
+	if only != nil && only.Len() > 0 {
 		var selected []string
-		for _, name := range onlyGroups.List() {
+		for _, name := range only.List() {
 			groupName := name.(string)
 			if contains(allGroupNames, groupName) {
 				selected = append(selected, groupName)
@@ -648,9 +784,9 @@ func determineGroupsToManage(ruleGroups RuleGroups, d *schema.ResourceData) []st
 	}
 
 	// If ignore_groups is set, exclude those
-	if ignoreGroups := d.Get("ignore_groups").(*schema.Set); ignoreGroups.Len() > 0 {
+	if ignore != nil && ignore.Len() > 0 {
 		var ignored []string
-		for _, name := range ignoreGroups.List() {
+		for _, name := range ignore.List() {
 			ignored = append(ignored, name.(string))
 		}
 

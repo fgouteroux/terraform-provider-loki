@@ -39,11 +39,6 @@ jobs:
         version: v2.13.1
 
     - name: Generate
-      # setup-go pins GOTOOLCHAIN=local, but tfplugindocs needs a newer Go than
-      # the one go.mod declares. Let this one step fetch the toolchain it asks
-      # for instead of raising the module's own Go version.
-      env:
-        GOTOOLCHAIN: auto
       run: make generate
 
     - name: Confirm no diff

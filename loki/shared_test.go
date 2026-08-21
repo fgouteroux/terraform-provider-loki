@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -121,17 +122,28 @@ func testAccCheckLokiRuleGroupGone(namespace, name string, client *apiClient) re
 		if orgID := os.Getenv("LOKI_ORG_ID"); orgID != "" {
 			headers["X-Scope-OrgID"] = orgID
 		}
-
 		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
-		_, err := client.sendRequest("GET", path, "", headers)
-		if err == nil {
-			return fmt.Errorf("rule group %s/%s still exists in loki", namespace, name)
-		}
-		if !isNotFound(err) {
-			return err
+
+		// The ruler persists to object storage, so a group is not necessarily
+		// gone the instant the DELETE returns. Poll rather than assert once.
+		var lastErr error
+		for attempt := 0; attempt < 10; attempt++ {
+			if attempt > 0 {
+				time.Sleep(time.Second)
+			}
+
+			_, err := client.sendRequest("GET", path, "", headers)
+			switch {
+			case err == nil:
+				lastErr = fmt.Errorf("rule group %s/%s still exists in loki", namespace, name)
+			case isNotFound(err):
+				return nil
+			default:
+				lastErr = err
+			}
 		}
 
-		return nil
+		return lastErr
 	}
 }
 

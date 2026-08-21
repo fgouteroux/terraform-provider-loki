@@ -12,12 +12,9 @@ services:
       - ./config.yaml:/etc/loki/config.yaml
     command:
       - --config.file=/etc/loki/config.yaml
-    healthcheck:
-      test: ["CMD", "wget", "-O-", "http://localhost:3100/ready"]
-      timeout: 45s
-      interval: 30s
-      start_period: 40s
-      retries: 3
+    # No healthcheck: busybox (and so wget/sh) was removed from the official Loki
+    # images in 3.5.8, and the image ships no other probe tool. The Makefile polls
+    # /ready from the host instead.
   s3:
     image: minio/minio
     container_name: minio

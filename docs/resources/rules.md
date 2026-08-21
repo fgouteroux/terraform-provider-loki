@@ -4,9 +4,9 @@ page_title: "loki_rules Resource - terraform-provider-loki"
 subcategory: ""
 description: |-
   Manages multiple Loki rule groups within a namespace.
-          This resource is designed to handle YAML files containing multiple rule groups.
-          Each rule group is managed individually via the Loki API, but they are tracked
-          together as a single Terraform resource for easier bulk management.
+  This resource is designed to handle YAML files containing multiple rule groups.
+  Each rule group is managed individually via the Loki API, but they are tracked
+  together as a single Terraform resource for easier bulk management.
 ---
 
 # loki_rules (Resource)
@@ -173,5 +173,3 @@ Read-Only:
 - `name` (String)
 - `recording_rules_count` (Number)
 - `rules_count` (Number)
-
-

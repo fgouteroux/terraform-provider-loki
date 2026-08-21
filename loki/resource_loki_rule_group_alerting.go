@@ -20,13 +20,13 @@ func resourcelokiRuleGroupAlerting() *schema.Resource {
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
-			"org_id": {
+			orgIDKey: {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Description: "The Organization ID. If not set, the Org ID defined in the provider block will be used.",
+				Description: orgIDDescription,
 			},
-			"namespace": {
+			namespaceKey: {
 				Type:        schema.TypeString,
 				Description: "Alerting Rule group namespace",
 				ForceNew:    true,
@@ -40,7 +40,7 @@ func resourcelokiRuleGroupAlerting() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validateGroupRuleName,
 			},
-			"interval": {
+			intervalKey: {
 				Type:         schema.TypeString,
 				Description:  "Alerting Rule group interval",
 				Optional:     true,
@@ -86,7 +86,7 @@ func resourcelokiRuleGroupAlerting() *schema.Resource {
 							Elem:         &schema.Schema{Type: schema.TypeString},
 							ValidateFunc: validateAnnotations,
 						},
-						"labels": {
+						labelsKey: {
 							Type:         schema.TypeMap,
 							Description:  "Labels to add or overwrite for each alert.",
 							Optional:     true,
@@ -103,12 +103,12 @@ func resourcelokiRuleGroupAlerting() *schema.Resource {
 func resourcelokiRuleGroupAlertingCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 
 	rules := &alertingRuleGroup{
 		Name:     name,
-		Interval: d.Get("interval").(string),
+		Interval: d.Get(intervalKey).(string),
 		Rules:    expandAlertingRules(d.Get("rule").([]interface{})),
 	}
 	data, _ := yaml.Marshal(rules)
@@ -175,7 +175,7 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 		return diag.FromErr(fmt.Errorf("unable to decode alerting namespace rule group '%s' data: %v", name, err))
 	}
 
-	err = d.Set("org_id", orgID)
+	err = d.Set(orgIDKey, orgID)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -184,7 +184,7 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 		return diag.FromErr(err)
 	}
 
-	err = d.Set("namespace", namespace)
+	err = d.Set(namespaceKey, namespace)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -192,7 +192,7 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	err = d.Set("interval", data.Interval)
+	err = d.Set(intervalKey, data.Interval)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -201,15 +201,15 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 }
 
 func resourcelokiRuleGroupAlertingUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	if d.HasChanges("rule", "interval") {
+	if d.HasChanges("rule", intervalKey) {
 		client := meta.(*apiClient)
 		name := d.Get("name").(string)
-		namespace := d.Get("namespace").(string)
-		orgID := d.Get("org_id").(string)
+		namespace := d.Get(namespaceKey).(string)
+		orgID := d.Get(orgIDKey).(string)
 
 		rules := &alertingRuleGroup{
 			Name:     name,
-			Interval: d.Get("interval").(string),
+			Interval: d.Get(intervalKey).(string),
 			Rules:    expandAlertingRules(d.Get("rule").([]interface{})),
 		}
 		data, _ := yaml.Marshal(rules)
@@ -232,8 +232,8 @@ func resourcelokiRuleGroupAlertingUpdate(ctx context.Context, d *schema.Resource
 func resourcelokiRuleGroupAlertingDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 	headers := make(map[string]string)
 	if orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
@@ -280,7 +280,7 @@ func expandAlertingRules(v []interface{}) []alertingRule {
 			}
 		*/
 
-		if raw, ok := data["labels"]; ok {
+		if raw, ok := data[labelsKey]; ok {
 			if len(raw.(map[string]interface{})) > 0 {
 				rule.Labels = expandStringMap(raw.(map[string]interface{}))
 			}
@@ -319,7 +319,7 @@ func flattenAlertingRules(v []alertingRule) []map[string]interface{} {
 			}
 		*/
 		if v.Labels != nil {
-			rule["labels"] = v.Labels
+			rule[labelsKey] = v.Labels
 		}
 		if v.Annotations != nil {
 			rule["annotations"] = v.Annotations

@@ -21,7 +21,7 @@ func Provider(version string) func() *schema.Provider {
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_URI", nil),
 					Description: "loki base url",
 				},
-				"org_id": {
+				orgIDKey: {
 					Type:        schema.TypeString,
 					Optional:    true,
 					DefaultFunc: schema.EnvDefaultFunc("LOKI_ORG_ID", nil),
@@ -144,7 +144,7 @@ func providerConfigure(d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	// tenant is actually configured. Some Loki-compatible gateways (e.g.
 	// Scaleway Cockpit) reject any request carrying this header at all,
 	// regardless of value, when multi-tenancy isn't in use.
-	if orgID := d.Get("org_id").(string); orgID != "" {
+	if orgID := d.Get(orgIDKey).(string); orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
 	}
 

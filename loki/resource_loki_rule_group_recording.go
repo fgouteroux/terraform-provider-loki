@@ -20,13 +20,13 @@ func resourcelokiRuleGroupRecording() *schema.Resource {
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
-			"org_id": {
+			orgIDKey: {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Description: "The Organization ID. If not set, the Org ID defined in the provider block will be used.",
+				Description: orgIDDescription,
 			},
-			"namespace": {
+			namespaceKey: {
 				Type:        schema.TypeString,
 				Description: "Recording Rule group namespace",
 				ForceNew:    true,
@@ -40,7 +40,7 @@ func resourcelokiRuleGroupRecording() *schema.Resource {
 				ForceNew:     true,
 				ValidateFunc: validateGroupRuleName,
 			},
-			"interval": {
+			intervalKey: {
 				Type:         schema.TypeString,
 				Description:  "Recording Rule group interval",
 				Optional:     true,
@@ -63,7 +63,7 @@ func resourcelokiRuleGroupRecording() *schema.Resource {
 							Description:  "The LogQL expression to evaluate.",
 							ValidateFunc: validateLogQLExpr,
 						},
-						"labels": {
+						labelsKey: {
 							Type:         schema.TypeMap,
 							Description:  "Labels to add or overwrite before storing the result.",
 							Optional:     true,
@@ -80,12 +80,12 @@ func resourcelokiRuleGroupRecording() *schema.Resource {
 func resourcelokiRuleGroupRecordingCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 
 	rules := &recordingRuleGroup{
 		Name:     name,
-		Interval: d.Get("interval").(string),
+		Interval: d.Get(intervalKey).(string),
 		Rules:    expandRecordingRules(d.Get("rule").([]interface{})),
 	}
 	data, _ := yaml.Marshal(rules)
@@ -152,7 +152,7 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 		return diag.FromErr(fmt.Errorf("unable to decode recording namespace rule group '%s' data: %v", name, err))
 	}
 
-	err = d.Set("org_id", orgID)
+	err = d.Set(orgIDKey, orgID)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -161,7 +161,7 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 		return diag.FromErr(err)
 	}
 
-	err = d.Set("namespace", namespace)
+	err = d.Set(namespaceKey, namespace)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -171,7 +171,7 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 		return diag.FromErr(err)
 	}
 
-	err = d.Set("interval", data.Interval)
+	err = d.Set(intervalKey, data.Interval)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -180,15 +180,15 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 }
 
 func resourcelokiRuleGroupRecordingUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	if d.HasChanges("rule", "interval") {
+	if d.HasChanges("rule", intervalKey) {
 		client := meta.(*apiClient)
 		name := d.Get("name").(string)
-		namespace := d.Get("namespace").(string)
-		orgID := d.Get("org_id").(string)
+		namespace := d.Get(namespaceKey).(string)
+		orgID := d.Get(orgIDKey).(string)
 
 		rules := &recordingRuleGroup{
 			Name:     name,
-			Interval: d.Get("interval").(string),
+			Interval: d.Get(intervalKey).(string),
 			Rules:    expandRecordingRules(d.Get("rule").([]interface{})),
 		}
 		data, _ := yaml.Marshal(rules)
@@ -211,8 +211,8 @@ func resourcelokiRuleGroupRecordingUpdate(ctx context.Context, d *schema.Resourc
 func resourcelokiRuleGroupRecordingDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*apiClient)
 	name := d.Get("name").(string)
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 	headers := make(map[string]string)
 	if orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
@@ -246,7 +246,7 @@ func expandRecordingRules(v []interface{}) []recordingRule {
 			rule.Expr = raw.(string)
 		}
 
-		if raw, ok := data["labels"]; ok {
+		if raw, ok := data[labelsKey]; ok {
 			if len(raw.(map[string]interface{})) > 0 {
 				rule.Labels = expandStringMap(raw.(map[string]interface{}))
 			}
@@ -271,7 +271,7 @@ func flattenRecordingRules(v []recordingRule) []map[string]interface{} {
 		rule["expr"] = v.Expr
 
 		if v.Labels != nil {
-			rule["labels"] = v.Labels
+			rule[labelsKey] = v.Labels
 		}
 
 		rules = append(rules, rule)

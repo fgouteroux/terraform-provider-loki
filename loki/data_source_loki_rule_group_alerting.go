@@ -3,7 +3,6 @@ package loki
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -106,7 +105,7 @@ func dataSourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.Resource
 	baseMsg := fmt.Sprintf("Cannot read alerting rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
 	if err != nil {
-		if strings.Contains(err.Error(), "response code '404'") {
+		if isNotFound(err) {
 			d.SetId("")
 			return nil
 		}

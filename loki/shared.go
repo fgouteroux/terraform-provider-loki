@@ -3,6 +3,7 @@ package loki
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/grafana/loki/v3/pkg/logql/syntax"
@@ -14,6 +15,13 @@ var (
 	labelNameRegexp     = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 	metricNameRegexp    = regexp.MustCompile(`^[a-zA-Z_:][a-zA-Z0-9_:]*$`)
 )
+
+// isNotFound reports whether err came back from a 404. sendRequest returns a
+// formatted error rather than a typed one, so this centralises the string match
+// that every caller was doing inline.
+func isNotFound(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "response code '404'")
+}
 
 func handleHTTPError(err error, baseMsg string) error {
 	if err != nil {

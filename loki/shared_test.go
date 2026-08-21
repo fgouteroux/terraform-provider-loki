@@ -5,7 +5,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"testing"
 
+	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
@@ -17,6 +19,30 @@ func getSetEnv(key, fallback string) string {
 		os.Setenv(key, fallback)
 	}
 	return value
+}
+
+// skipBelowLokiVersion skips the test unless LOKI_VERSION names a Loki release
+// at least as recent as min. An unset or unparseable LOKI_VERSION skips too:
+// `make test` runs the package with no backend at all, and version.NewVersion
+// returns a nil *Version there, so calling LessThan on it panics and takes the
+// whole package down.
+func skipBelowLokiVersion(t *testing.T, min string) {
+	t.Helper()
+
+	raw := os.Getenv("LOKI_VERSION")
+	current, err := version.NewVersion(raw)
+	if err != nil {
+		t.Skipf("skipping: LOKI_VERSION is %q, cannot check for Loki >= %s", raw, min)
+	}
+
+	minVersion, err := version.NewVersion(min)
+	if err != nil {
+		t.Fatalf("invalid minimum version %q: %s", min, err)
+	}
+
+	if current.LessThan(minVersion) {
+		t.Skipf("skipping: Loki %s is older than %s", current, minVersion)
+	}
 }
 
 func testAccCheckLokiRuleGroupExists(n string, name string, client *apiClient) resource.TestCheckFunc {
@@ -93,7 +119,7 @@ func testAccCheckLokiRuleGroupDestroy(s *terraform.State) error {
 	// loop through the resources in state, verifying each widget
 	// is destroyed
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "loki_rule_group_recording" {
+		if rs.Type != "loki_rule_group_recording" && rs.Type != "loki_rule_group_alerting" {
 			continue
 		}
 
@@ -109,9 +135,12 @@ func testAccCheckLokiRuleGroupDestroy(s *terraform.State) error {
 		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
 		_, err := client.sendRequest("GET", path, "", headers)
 
-		// If the error is equivalent to 404 not found, the widget is destroyed.
-		// Otherwise return the error
-		if !strings.Contains(err.Error(), "group does not exist") {
+		// A nil error means the group is still there, which is the failure this
+		// check exists to catch. Dereferencing err here used to panic instead.
+		if err == nil {
+			return fmt.Errorf("rule group %s/%s still exists in loki", namespace, name)
+		}
+		if !isNotFound(err) {
 			return err
 		}
 	}

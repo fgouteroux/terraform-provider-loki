@@ -89,7 +89,7 @@ func resourcelokiRuleGroupRecordingCreate(ctx context.Context, d *schema.Resourc
 		Rules:    expandRecordingRules(d.Get("rule").([]interface{})),
 	}
 	data, _ := yaml.Marshal(rules)
-	headers := map[string]string{"Content-Type": "application/yaml"}
+	headers := map[string]string{contentTypeHeader: contentTypeYAML}
 	if orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
 	}
@@ -139,7 +139,7 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 	baseMsg := fmt.Sprintf("Cannot read recording rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
 	if err != nil {
-		if strings.Contains(err.Error(), "response code '404'") {
+		if isNotFound(err) {
 			d.SetId("")
 			return diag.Diagnostics{}
 		}
@@ -192,7 +192,7 @@ func resourcelokiRuleGroupRecordingUpdate(ctx context.Context, d *schema.Resourc
 			Rules:    expandRecordingRules(d.Get("rule").([]interface{})),
 		}
 		data, _ := yaml.Marshal(rules)
-		headers := map[string]string{"Content-Type": "application/yaml"}
+		headers := map[string]string{contentTypeHeader: contentTypeYAML}
 		if orgID != "" {
 			headers["X-Scope-OrgID"] = orgID
 		}
@@ -292,8 +292,8 @@ func validateRecordingRuleName(v interface{}, k string) (ws []string, errors []e
 }
 
 type recordingRule struct {
-	Record string            `json:"record"`
-	Expr   string            `json:"expr"`
+	Record string            `yaml:"record"`
+	Expr   string            `yaml:"expr"`
 	Labels map[string]string `yaml:"labels,omitempty"`
 }
 

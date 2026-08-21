@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/prometheus/common/model"
 	"gopkg.in/yaml.v3"
 
 	"github.com/grafana/loki/v3/pkg/logql/syntax"
@@ -304,7 +304,7 @@ func validateRuleGroupsContent(ruleGroups RuleGroups) error {
 
 		// Validate interval if specified
 		if group.Interval != "" {
-			if _, err := time.ParseDuration(group.Interval); err != nil {
+			if _, err := model.ParseDuration(group.Interval); err != nil {
 				return fmt.Errorf("group %d (%s): invalid interval '%s': %v", i, group.Name, group.Interval, err)
 			}
 		}
@@ -356,7 +356,7 @@ func validateRuleForLoki(rule Rule, groupIndex, ruleIndex int, groupName string)
 
 		// Validate 'for' duration if specified
 		if rule.For != "" {
-			if _, err := time.ParseDuration(rule.For); err != nil {
+			if _, err := model.ParseDuration(rule.For); err != nil {
 				return fmt.Errorf("group %d (%s), rule %d: invalid 'for' duration '%s': %v", groupIndex, groupName, ruleIndex, rule.For, err)
 			}
 		}
@@ -488,7 +488,7 @@ func resourcelokiRulesRead(ctx context.Context, d *schema.ResourceData, m interf
 		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, groupName)
 		_, err := client.sendRequest("GET", path, "", headers)
 		if err != nil {
-			if strings.Contains(err.Error(), "response code '404'") {
+			if isNotFound(err) {
 				// Group was deleted outside of Terraform
 				continue
 			}
@@ -732,7 +732,7 @@ func calculateContentHash(ruleGroups RuleGroups, managedGroups []string) string 
 }
 
 func createLokiRuleGroup(client *apiClient, namespace, orgID string, group RuleGroup) error {
-	headers := make(map[string]string)
+	headers := map[string]string{contentTypeHeader: contentTypeYAML}
 	if orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
 	}
@@ -756,7 +756,7 @@ func deleteLokiRuleGroup(client *apiClient, namespace, orgID, groupName string) 
 
 	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, groupName)
 	_, err := client.sendRequest("DELETE", path, "", headers)
-	if err != nil && strings.Contains(err.Error(), "response code '404'") {
+	if err != nil && isNotFound(err) {
 		// Group already doesn't exist, consider this success
 		return nil
 	}

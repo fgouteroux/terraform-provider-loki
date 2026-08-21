@@ -112,7 +112,7 @@ func resourcelokiRuleGroupAlertingCreate(ctx context.Context, d *schema.Resource
 		Rules:    expandAlertingRules(d.Get("rule").([]interface{})),
 	}
 	data, _ := yaml.Marshal(rules)
-	headers := map[string]string{"Content-Type": "application/yaml"}
+	headers := map[string]string{contentTypeHeader: contentTypeYAML}
 	if orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
 	}
@@ -162,7 +162,7 @@ func resourcelokiRuleGroupAlertingRead(ctx context.Context, d *schema.ResourceDa
 	baseMsg := fmt.Sprintf("Cannot read alerting rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
 	if err != nil {
-		if strings.Contains(err.Error(), "response code '404'") {
+		if isNotFound(err) {
 			d.SetId("")
 			return nil
 		}
@@ -213,7 +213,7 @@ func resourcelokiRuleGroupAlertingUpdate(ctx context.Context, d *schema.Resource
 			Rules:    expandAlertingRules(d.Get("rule").([]interface{})),
 		}
 		data, _ := yaml.Marshal(rules)
-		headers := map[string]string{"Content-Type": "application/yaml"}
+		headers := map[string]string{contentTypeHeader: contentTypeYAML}
 		if orgID != "" {
 			headers["X-Scope-OrgID"] = orgID
 		}

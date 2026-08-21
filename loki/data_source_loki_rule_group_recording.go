@@ -3,7 +3,6 @@ package loki
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -86,7 +85,7 @@ func dataSourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.Resourc
 	baseMsg := fmt.Sprintf("Cannot read recording rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
 	if err != nil {
-		if strings.Contains(err.Error(), "response code '404'") {
+		if isNotFound(err) {
 			d.SetId("")
 			return nil
 		}

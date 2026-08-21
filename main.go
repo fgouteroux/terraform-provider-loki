@@ -1,5 +1,9 @@
 package main
 
+// Keep the tfplugindocs version pinned: the generated markdown differs between
+// versions, and the CI "Confirm no diff" step compares against what is committed.
+//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@v0.25.0 generate --provider-name terraform-provider-loki
+
 import (
 	"flag"
 

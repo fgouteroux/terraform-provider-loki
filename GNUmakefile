@@ -1,4 +1,4 @@
-LOKI_VERSION ?= 2.8.3
+LOKI_VERSION ?= 3.7.6
 
 default: build
 

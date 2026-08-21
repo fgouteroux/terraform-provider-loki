@@ -53,5 +53,3 @@ Read-Only:
 - `for` (String)
 - `labels` (Map of String)
 - `record` (String)
-
-

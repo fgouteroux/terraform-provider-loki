@@ -64,8 +64,8 @@ provider "loki" {
   org_id = "mytenant"
 
   aws_sigv4 {
-    region  = "us-east-1"       # Optional, defaults to AWS_REGION env var
-    service = "execute-api"     # Optional, defaults to "execute-api"
+    region  = "us-east-1"   # Optional, defaults to AWS_REGION env var
+    service = "execute-api" # Optional, defaults to "execute-api"
   }
 }
 ```
@@ -86,7 +86,7 @@ AWS credentials are loaded from the default credential chain:
 
 ### Optional
 
-- `aws_sigv4` (Block List, Max: 1) AWS Signature Version 4 authentication configuration. When configured, requests will be signed using AWS credentials from the default credential chain. (see [below for nested schema](#nestedblock--aws_sigv4))
+- `aws_sigv4` (Block List, Max: 1) AWS Signature Version 4 authentication configuration. When configured, requests will be signed using AWS credentials from the default credential chain (environment variables, shared credentials file, IAM role, etc.). (see [below for nested schema](#nestedblock--aws_sigv4))
 - `ca` (String) Client ca for client authentication
 - `cert` (String) Client cert for client authentication
 - `debug` (Boolean) Enable debug mode to trace requests executed.

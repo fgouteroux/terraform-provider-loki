@@ -96,6 +96,43 @@ func TestAccResourceRules_multipleGroups(t *testing.T) {
 	})
 }
 
+// Removing a group from the configuration must delete it from Loki. Update read
+// managed_groups through d.Get, which CustomizeDiff had already overwritten with
+// the new value, so the delete list was always empty and the group was orphaned
+// while Terraform reported success.
+func TestAccResourceRules_removeGroup(t *testing.T) {
+	// Init client
+	client, err := NewAPIClient(setupClient())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { testAccPreCheck(t) },
+		ProviderFactories: testAccProviderFactories,
+		CheckDestroy:      testAccCheckLokiRuleDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccResourceRulesConfig_removeGroup_v1,
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckLokiNamespaceExists("loki_rules.remove", "remove", client),
+					resource.TestCheckResourceAttr("loki_rules.remove", "managed_groups.#", "2"),
+					resource.TestCheckResourceAttr("loki_rules.remove", "groups_count", "2"),
+				),
+			},
+			{
+				Config: testAccResourceRulesConfig_removeGroup_v2,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("loki_rules.remove", "managed_groups.#", "1"),
+					resource.TestCheckResourceAttr("loki_rules.remove", "managed_groups.0", "kept_group"),
+					resource.TestCheckResourceAttr("loki_rules.remove", "groups_count", "1"),
+					testAccCheckLokiRuleGroupGone("test_remove", "dropped_group", client),
+				),
+			},
+		},
+	})
+}
+
 func TestAccResourceRules_onlyGroups(t *testing.T) {
 	// Init client
 	client, err := NewAPIClient(setupClient())
@@ -479,6 +516,42 @@ resource "loki_rules" "with_org" {
           - alert: OrgAlert
             expr: |
               count_over_time({job="test"} [5m]) == 0
+  EOT
+}
+`
+
+const testAccResourceRulesConfig_removeGroup_v1 = `
+resource "loki_rules" "remove" {
+  namespace = "test_remove"
+
+  content = <<-EOT
+    groups:
+      - name: kept_group
+        interval: 1m
+        rules:
+          - record: job:kept:5m
+            expr: sum(rate({job=~".+"}[5m])) by (job)
+
+      - name: dropped_group
+        interval: 1m
+        rules:
+          - record: job:dropped:5m
+            expr: sum(rate({job=~".+"}[5m])) by (job)
+  EOT
+}
+`
+
+const testAccResourceRulesConfig_removeGroup_v2 = `
+resource "loki_rules" "remove" {
+  namespace = "test_remove"
+
+  content = <<-EOT
+    groups:
+      - name: kept_group
+        interval: 1m
+        rules:
+          - record: job:kept:5m
+            expr: sum(rate({job=~".+"}[5m])) by (job)
   EOT
 }
 `

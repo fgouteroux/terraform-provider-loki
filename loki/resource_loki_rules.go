@@ -62,7 +62,7 @@ func resourcelokiRules() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
-			"namespace": {
+			namespaceKey: {
 				Type:         schema.TypeString,
 				Required:     true,
 				ForceNew:     true,
@@ -70,11 +70,11 @@ func resourcelokiRules() *schema.Resource {
 				ValidateFunc: validation.StringLenBetween(1, 100),
 			},
 
-			"org_id": {
+			orgIDKey: {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Description: "The Organization ID. If not set, the Org ID defined in the provider block will be used.",
+				Description: orgIDDescription,
 			},
 
 			// Content input methods (mutually exclusive)
@@ -155,7 +155,7 @@ func resourcelokiRules() *schema.Resource {
 							Computed:    true,
 							Description: "Rule group name",
 						},
-						"interval": {
+						intervalKey: {
 							Type:        schema.TypeString,
 							Computed:    true,
 							Description: "Evaluation interval",
@@ -424,8 +424,8 @@ func resourcelokiRulesCreate(ctx context.Context, d *schema.ResourceData, m inte
 		return diag.FromErr(err)
 	}
 
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 
 	// Determine which groups to manage
 	managedGroups := determineGroupsToManage(ruleGroups, d)
@@ -466,8 +466,8 @@ func resourcelokiRulesCreate(ctx context.Context, d *schema.ResourceData, m inte
 func resourcelokiRulesRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*apiClient)
 
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 
 	// Read the current configuration to get managed groups
 	ruleGroups, err := parseRuleGroupsConfiguration(d)
@@ -512,8 +512,8 @@ func resourcelokiRulesRead(ctx context.Context, d *schema.ResourceData, m interf
 func resourcelokiRulesUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*apiClient)
 
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 
 	// Get new configuration
 	newRuleGroups, err := parseRuleGroupsConfiguration(d)
@@ -561,8 +561,8 @@ func resourcelokiRulesUpdate(ctx context.Context, d *schema.ResourceData, m inte
 func resourcelokiRulesDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(*apiClient)
 
-	namespace := d.Get("namespace").(string)
-	orgID := d.Get("org_id").(string)
+	namespace := d.Get(namespaceKey).(string)
+	orgID := d.Get(orgIDKey).(string)
 
 	// Get list of managed groups from state
 	managedGroupsInterface := d.Get("managed_groups").([]interface{})
@@ -593,8 +593,8 @@ func resourcelokiRulesImport(ctx context.Context, d *schema.ResourceData, m inte
 
 	if len(parts) == 2 {
 		// Multi-tenant: orgID/namespace
-		d.Set("org_id", parts[0])
-		d.Set("namespace", parts[1])
+		d.Set(orgIDKey, parts[0])
+		d.Set(namespaceKey, parts[1])
 	} else {
 		return nil, fmt.Errorf("import ID must be in format: namespace or orgID/namespace")
 	}
@@ -699,7 +699,7 @@ func setComputedFields(d *schema.ResourceData, ruleGroups RuleGroups, managedGro
 
 		groupDetail := map[string]interface{}{
 			"name":                  group.Name,
-			"interval":              group.Interval,
+			intervalKey:             group.Interval,
 			"rules_count":           len(group.Rules),
 			"alerting_rules_count":  alertingCount,
 			"recording_rules_count": recordingCount,

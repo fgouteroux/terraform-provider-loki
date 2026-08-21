@@ -20,18 +20,18 @@ func dataSourcelokiRuleGroupList() *schema.Resource {
 				Optional:    true,
 				Description: "Name of the datasource. Only used for resource dependency.",
 			},
-			"org_id": {
+			orgIDKey: {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Description: "The Organization ID. If not set, the Org ID defined in the provider block will be used.",
+				Description: orgIDDescription,
 			},
 			"namespaces": {
 				Type:     schema.TypeList,
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"namespace": {
+						namespaceKey: {
 							Type:        schema.TypeString,
 							Description: "Rule group namespace",
 							Computed:    true,
@@ -46,7 +46,7 @@ func dataSourcelokiRuleGroupList() *schema.Resource {
 										Description: "Rule group name",
 										Computed:    true,
 									},
-									"interval": {
+									intervalKey: {
 										Type:        schema.TypeString,
 										Description: "Rule group interval",
 										Computed:    true,
@@ -82,7 +82,7 @@ func dataSourcelokiRuleGroupList() *schema.Resource {
 													Elem:        &schema.Schema{Type: schema.TypeString},
 													Computed:    true,
 												},
-												"labels": {
+												labelsKey: {
 													Type:        schema.TypeMap,
 													Description: "Rule labels",
 													Elem:        &schema.Schema{Type: schema.TypeString},
@@ -104,7 +104,7 @@ func dataSourcelokiRuleGroupList() *schema.Resource {
 
 func dataSourcelokiRuleGroupListAll(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*apiClient)
-	orgID := d.Get("org_id").(string)
+	orgID := d.Get(orgIDKey).(string)
 
 	id := "all_rules"
 
@@ -147,7 +147,7 @@ func flattenAllRule(v map[string][]ruleGroup) []map[string]interface{} {
 
 	for k, v := range v {
 		namespace := make(map[string]interface{})
-		namespace["namespace"] = k
+		namespace[namespaceKey] = k
 		namespace["rule_groups"] = flattenRuleGroups(v)
 
 		namespaces = append(namespaces, namespace)
@@ -166,7 +166,7 @@ func flattenRuleGroups(v []ruleGroup) []map[string]interface{} {
 	for _, v := range v {
 		ruleGroup := make(map[string]interface{})
 		ruleGroup["name"] = v.Name
-		ruleGroup["interval"] = v.Interval
+		ruleGroup[intervalKey] = v.Interval
 		ruleGroup["rule"] = flattenRules(v.Rules)
 
 		ruleGroups = append(ruleGroups, ruleGroup)
@@ -192,7 +192,7 @@ func flattenRules(v []rule) []map[string]interface{} {
 			rule["for"] = v.For
 		}
 		if v.Labels != nil {
-			rule["labels"] = v.Labels
+			rule[labelsKey] = v.Labels
 		}
 		if v.Annotations != nil {
 			rule["annotations"] = v.Annotations

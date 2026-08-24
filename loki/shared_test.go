@@ -116,7 +116,7 @@ func testAccCheckLokiNamespaceExists(n string, name string, client *apiClient) r
 // testAccCheckLokiRuleGroupGone asserts a rule group is absent from Loki itself,
 // not merely absent from the Terraform state: state can say a group is no longer
 // managed while the group is still sitting in the backend.
-func testAccCheckLokiRuleGroupGone(namespace, name string, client *apiClient) resource.TestCheckFunc {
+func testAccCheckLokiRuleGroupGone(namespace, name string, _ *apiClient) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		headers := make(map[string]string)
 		if orgID := os.Getenv("LOKI_ORG_ID"); orgID != "" {
@@ -124,10 +124,22 @@ func testAccCheckLokiRuleGroupGone(namespace, name string, client *apiClient) re
 		}
 		path := rulesGroupPath(namespace, name)
 
+		// The shared test client has a 2s timeout, which is fine for reads that
+		// hit an existing group but too tight for a group being deleted: the
+		// ruler reconciles against object storage and answers slowly enough
+		// that every attempt timed out rather than returning the 404 we wait
+		// for. Use a patient client for this check only.
+		opt := setupClient()
+		opt.timeout = 30
+		client, err := NewAPIClient(opt)
+		if err != nil {
+			return err
+		}
+
 		// The ruler persists to object storage, so a group is not necessarily
 		// gone the instant the DELETE returns. Poll rather than assert once.
 		var lastErr error
-		for attempt := 0; attempt < 10; attempt++ {
+		for attempt := 0; attempt < 12; attempt++ {
 			if attempt > 0 {
 				time.Sleep(time.Second)
 			}

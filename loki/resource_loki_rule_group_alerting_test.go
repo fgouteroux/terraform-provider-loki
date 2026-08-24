@@ -14,11 +14,19 @@ func TestAccResourceRuleGroupAlerting_expectValidationError(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceRuleGroupAlerting_expectNameValidationError,
-				ExpectError: regexp.MustCompile("Invalid Group Rule Name"),
+				ExpectError: regexp.MustCompile("path traversal is not allowed"),
+			},
+			{
+				Config:      testAccResourceRuleGroupAlerting_expectNamespaceValidationError,
+				ExpectError: regexp.MustCompile("path traversal is not allowed"),
+			},
+			{
+				Config:      testAccResourceRuleGroupAlerting_expectOrgIDValidationError,
+				ExpectError: regexp.MustCompile("unsupported character"),
 			},
 			{
 				Config:      testAccResourceRuleGroupAlerting_expectRuleNameValidationError,
-				ExpectError: regexp.MustCompile("Invalid Alerting Rule Name"),
+				ExpectError: regexp.MustCompile("must not be empty"),
 			},
 			{
 				Config:      testAccResourceRuleGroupAlerting_expectLogQLValidationError,
@@ -42,8 +50,31 @@ func TestAccResourceRuleGroupAlerting_expectValidationError(t *testing.T) {
 
 const testAccResourceRuleGroupAlerting_expectNameValidationError = `
 	resource "loki_rule_group_alerting" "alert_1" {
-		name = "alert-@error"
+		name = ".."
 		namespace = "namespace_1"
+		rule {
+			alert = "test1_alert"
+			expr   = "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"
+		}
+	}
+`
+
+const testAccResourceRuleGroupAlerting_expectNamespaceValidationError = `
+	resource "loki_rule_group_alerting" "alert_1" {
+		name = "alert_1"
+		namespace = "../escape"
+		rule {
+			alert = "test1_alert"
+			expr   = "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"
+		}
+	}
+`
+
+const testAccResourceRuleGroupAlerting_expectOrgIDValidationError = `
+	resource "loki_rule_group_alerting" "alert_1" {
+		name = "alert_1"
+		namespace = "namespace_1"
+		org_id = "tenant/other"
 		rule {
 			alert = "test1_alert"
 			expr   = "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"
@@ -56,7 +87,7 @@ const testAccResourceRuleGroupAlerting_expectRuleNameValidationError = `
 		name = "alert_1"
 		namespace = "namespace_1"
 		rule {
-			alert = "test1 alert"
+			alert = ""
 			expr   = "sum(rate({app=\"foo\"} |= \"error\" [5m])) by (job) / sum(rate({app=\"foo\"}[5m])) by (job) > 0.05"
 		}
 	}

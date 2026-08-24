@@ -14,7 +14,7 @@ func TestAccResourceRuleGroupRecording_expectValidationError(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config:      testAccResourceRuleGroupRecording_expectNameValidationError,
-				ExpectError: regexp.MustCompile("Invalid Group Rule Name"),
+				ExpectError: regexp.MustCompile("path traversal is not allowed"),
 			},
 			{
 				Config:      testAccResourceRuleGroupRecording_expectRuleNameValidationError,
@@ -34,7 +34,7 @@ func TestAccResourceRuleGroupRecording_expectValidationError(t *testing.T) {
 
 const testAccResourceRuleGroupRecording_expectNameValidationError = `
 	resource "loki_rule_group_recording" "record_1" {
-		name = "record_1-@error"
+		name = ".."
 		namespace = "namespace_1"
 		rule {
 			record = "nginx:requests:rate1m"

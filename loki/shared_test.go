@@ -70,7 +70,7 @@ func testAccCheckLokiRuleGroupExists(n string, name string, client *apiClient) r
 		if orgID != "" {
 			headers["X-Scope-OrgID"] = orgID
 		}
-		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
+		path := rulesGroupPath(namespace, name)
 		_, err := client.sendRequest("GET", path, "", headers)
 		if err != nil {
 			return err
@@ -103,7 +103,7 @@ func testAccCheckLokiNamespaceExists(n string, name string, client *apiClient) r
 		if orgID != "" {
 			headers["X-Scope-OrgID"] = orgID
 		}
-		path := fmt.Sprintf("%s/%s", rulesPath, namespace)
+		path := rulesNamespacePath(namespace)
 		_, err := client.sendRequest("GET", path, "", headers)
 		if err != nil {
 			return err
@@ -122,7 +122,7 @@ func testAccCheckLokiRuleGroupGone(namespace, name string, client *apiClient) re
 		if orgID := os.Getenv("LOKI_ORG_ID"); orgID != "" {
 			headers["X-Scope-OrgID"] = orgID
 		}
-		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
+		path := rulesGroupPath(namespace, name)
 
 		// The ruler persists to object storage, so a group is not necessarily
 		// gone the instant the DELETE returns. Poll rather than assert once.
@@ -167,7 +167,7 @@ func testAccCheckLokiRuleGroupDestroy(s *terraform.State) error {
 		if orgID != "" {
 			headers["X-Scope-OrgID"] = orgID
 		}
-		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
+		path := rulesGroupPath(namespace, name)
 		_, err := client.sendRequest("GET", path, "", headers)
 
 		// A nil error means the group is still there, which is the failure this
@@ -208,7 +208,7 @@ func testAccCheckLokiRuleDestroy(s *terraform.State) error {
 		for i := 0; i < managedGroupsCount; i++ {
 			groupName := rs.Primary.Attributes[fmt.Sprintf("managed_groups.%d", i)]
 
-			path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, groupName)
+			path := rulesGroupPath(namespace, groupName)
 			_, err := client.sendRequest("GET", path, "", headers)
 
 			// If the error is equivalent to 404 not found, the group is destroyed.

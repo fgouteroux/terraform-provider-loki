@@ -86,14 +86,15 @@ func resourcelokiRules() *schema.Resource {
 				Required:     true,
 				ForceNew:     true,
 				Description:  "The namespace for the rule groups",
-				ValidateFunc: validation.StringLenBetween(1, 100),
+				ValidateFunc: validateNamespace,
 			},
 
 			orgIDKey: {
-				Type:        schema.TypeString,
-				ForceNew:    true,
-				Optional:    true,
-				Description: orgIDDescription,
+				Type:         schema.TypeString,
+				ForceNew:     true,
+				Optional:     true,
+				Description:  orgIDDescription,
+				ValidateFunc: validateOrgID,
 			},
 
 			// Content input methods (mutually exclusive)
@@ -294,8 +295,8 @@ func validateRuleGroupsContent(ruleGroups RuleGroups) error {
 			return fmt.Errorf("group %d: name is required", i)
 		}
 
-		if !groupRuleNameRegexp.MatchString(group.Name) {
-			return fmt.Errorf("invalid Group Rule Name %s. Must match the regex %s", group.Name, groupRuleNameRegexp)
+		if err := checkPathSegment(group.Name, "rule group name"); err != nil {
+			return fmt.Errorf("group %d: %s", i, err)
 		}
 
 		if groupNames[group.Name] {
@@ -350,9 +351,10 @@ func validateRuleForLoki(rule Rule, groupIndex, ruleIndex int, groupName string)
 
 	// Alerting rule specific validation
 	if hasAlert {
-		// Validate alert name
-		if !groupRuleNameRegexp.MatchString(rule.Alert) {
-			return fmt.Errorf("group %d (%s), rule %d: invalid alert name '%s'. Must match the regex %s", groupIndex, groupName, ruleIndex, rule.Alert, groupRuleNameRegexp)
+		// Validate alert name. Loki applies no rules of its own here, so this
+		// only rejects what cannot round-trip.
+		if err := checkNoControlChars(rule.Alert, "alert name"); err != nil {
+			return fmt.Errorf("group %d (%s), rule %d: %s", groupIndex, groupName, ruleIndex, err)
 		}
 
 		// Validate 'for' duration if specified
@@ -513,11 +515,7 @@ func resourcelokiRulesCreate(ctx context.Context, d *schema.ResourceData, m inte
 	setComputedFields(d, ruleGroups, managedGroups)
 
 	// Generate resource ID
-	if orgID != "" {
-		d.SetId(fmt.Sprintf("%s/%s", orgID, namespace))
-	} else {
-		d.SetId(namespace)
-	}
+	d.SetId(buildNamespaceID(orgID, namespace))
 
 	return resourcelokiRulesRead(ctx, d, m)
 }
@@ -544,7 +542,7 @@ func resourcelokiRulesRead(ctx context.Context, d *schema.ResourceData, m interf
 
 	var existingGroups []string
 	for _, groupName := range managedGroups {
-		path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, groupName)
+		path := rulesGroupPath(namespace, groupName)
 		_, err := client.sendRequest("GET", path, "", headers)
 		if err != nil {
 			if isNotFound(err) {
@@ -652,15 +650,18 @@ func resourcelokiRulesDelete(ctx context.Context, d *schema.ResourceData, m inte
 }
 
 func resourcelokiRulesImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-	// Import format: namespace or orgID/namespace
-	parts := strings.Split(d.Id(), "/")
-
-	if len(parts) == 2 {
-		// Multi-tenant: orgID/namespace
-		d.Set(orgIDKey, parts[0])
-		d.Set(namespaceKey, parts[1])
-	} else {
-		return nil, fmt.Errorf("import ID must be in format: namespace or orgID/namespace")
+	// Import format: namespace or orgID/namespace. The single-segment form was
+	// advertised by the error message below but rejected by the code, even
+	// though it is the ID this resource generates when org_id is unset.
+	orgID, namespace, err := parseNamespaceID(d.Id())
+	if err != nil {
+		return nil, err
+	}
+	if err := d.Set(orgIDKey, orgID); err != nil {
+		return nil, err
+	}
+	if err := d.Set(namespaceKey, namespace); err != nil {
+		return nil, err
 	}
 
 	// Note: For import, the user will need to provide content/content_file afterward
@@ -879,7 +880,7 @@ func createLokiRuleGroup(client *apiClient, namespace, orgID string, group RuleG
 		return fmt.Errorf("failed to marshal rule group to YAML: %w", err)
 	}
 
-	path := fmt.Sprintf("%s/%s", rulesPath, namespace)
+	path := rulesNamespacePath(namespace)
 	_, err = client.sendRequest("POST", path, string(yamlData), headers)
 	return err
 }
@@ -890,7 +891,7 @@ func deleteLokiRuleGroup(client *apiClient, namespace, orgID, groupName string) 
 		headers["X-Scope-OrgID"] = orgID
 	}
 
-	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, groupName)
+	path := rulesGroupPath(namespace, groupName)
 	_, err := client.sendRequest("DELETE", path, "", headers)
 	if err != nil && isNotFound(err) {
 		// Group already doesn't exist, consider this success

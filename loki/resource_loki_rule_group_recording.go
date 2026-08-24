@@ -3,7 +3,6 @@ package loki
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -21,17 +20,19 @@ func resourcelokiRuleGroupRecording() *schema.Resource {
 		},
 		Schema: map[string]*schema.Schema{
 			orgIDKey: {
-				Type:        schema.TypeString,
-				ForceNew:    true,
-				Optional:    true,
-				Description: orgIDDescription,
+				Type:         schema.TypeString,
+				ForceNew:     true,
+				Optional:     true,
+				Description:  orgIDDescription,
+				ValidateFunc: validateOrgID,
 			},
 			namespaceKey: {
-				Type:        schema.TypeString,
-				Description: "Recording Rule group namespace",
-				ForceNew:    true,
-				Optional:    true,
-				Default:     "default",
+				Type:         schema.TypeString,
+				Description:  "Recording Rule group namespace",
+				ForceNew:     true,
+				Optional:     true,
+				Default:      defaultNamespace,
+				ValidateFunc: validateNamespace,
 			},
 			"name": {
 				Type:         schema.TypeString,
@@ -94,18 +95,14 @@ func resourcelokiRuleGroupRecordingCreate(ctx context.Context, d *schema.Resourc
 		headers["X-Scope-OrgID"] = orgID
 	}
 
-	path := fmt.Sprintf("%s/%s", rulesPath, namespace)
+	path := rulesNamespacePath(namespace)
 	_, err := client.sendRequest("POST", path, string(data), headers)
 	baseMsg := fmt.Sprintf("Cannot create recording rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	if orgID != "" {
-		d.SetId(fmt.Sprintf("%s/%s/%s", orgID, namespace, name))
-	} else {
-		d.SetId(fmt.Sprintf("%s/%s", namespace, name))
-	}
+	d.SetId(buildRuleGroupID(orgID, namespace, name))
 	return resourcelokiRuleGroupRecordingRead(ctx, d, meta)
 }
 
@@ -113,27 +110,16 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 	client := meta.(*apiClient)
 
 	// use id as read is also called by import
-	idArr := strings.Split(d.Id(), "/")
-
-	var name, namespace, orgID string
-
-	switch len(idArr) {
-	case 2:
-		namespace = idArr[0]
-		name = idArr[1]
-	case 3:
-		orgID = idArr[0]
-		namespace = idArr[1]
-		name = idArr[2]
-	default:
-		return diag.FromErr(fmt.Errorf("invalid id format: expected 'namespace/name' or 'org_id/namespace/name', got '%s'", d.Id()))
+	orgID, namespace, name, err := parseRuleGroupID(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
 	headers := make(map[string]string)
 	if orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
 	}
-	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
+	path := rulesGroupPath(namespace, name)
 	jobraw, err := client.sendRequest("GET", path, "", headers)
 
 	baseMsg := fmt.Sprintf("Cannot read recording rule group '%s' -", name)
@@ -197,7 +183,7 @@ func resourcelokiRuleGroupRecordingUpdate(ctx context.Context, d *schema.Resourc
 			headers["X-Scope-OrgID"] = orgID
 		}
 
-		path := fmt.Sprintf("%s/%s", rulesPath, namespace)
+		path := rulesNamespacePath(namespace)
 		_, err := client.sendRequest("POST", path, string(data), headers)
 		baseMsg := fmt.Sprintf("Cannot update recording rule group '%s' -", name)
 		err = handleHTTPError(err, baseMsg)
@@ -217,7 +203,7 @@ func resourcelokiRuleGroupRecordingDelete(ctx context.Context, d *schema.Resourc
 	if orgID != "" {
 		headers["X-Scope-OrgID"] = orgID
 	}
-	path := fmt.Sprintf("%s/%s/%s", rulesPath, namespace, name)
+	path := rulesGroupPath(namespace, name)
 	_, err := client.sendRequest("DELETE", path, "", headers)
 	if err != nil {
 		return diag.FromErr(fmt.Errorf(

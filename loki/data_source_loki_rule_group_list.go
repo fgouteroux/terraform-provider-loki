@@ -20,10 +20,11 @@ func dataSourcelokiRuleGroupList() *schema.Resource {
 				Description: "Name of the datasource. Only used for resource dependency.",
 			},
 			orgIDKey: {
-				Type:        schema.TypeString,
-				ForceNew:    true,
-				Optional:    true,
-				Description: orgIDDescription,
+				Type:         schema.TypeString,
+				ForceNew:     true,
+				Optional:     true,
+				Description:  orgIDDescription,
+				ValidateFunc: validateOrgID,
 			},
 			"namespaces": {
 				Type:     schema.TypeList,

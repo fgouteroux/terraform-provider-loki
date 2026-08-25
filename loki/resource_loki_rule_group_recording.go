@@ -3,6 +3,7 @@ package loki
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -120,12 +121,28 @@ func resourcelokiRuleGroupRecordingRead(ctx context.Context, d *schema.ResourceD
 		headers["X-Scope-OrgID"] = orgID
 	}
 	path := rulesGroupPath(namespace, name)
-	jobraw, err := client.sendRequest("GET", path, "", headers)
+
+	// A group the provider has just written may not be readable yet, so retry
+	// through the ruler's reload window rather than concluding it is gone.
+	var jobraw string
+	if d.IsNewResource() {
+		jobraw, err = readRuleGroupAfterChange(client, path, headers)
+	} else {
+		jobraw, err = client.sendRequest("GET", path, "", headers)
+	}
 
 	baseMsg := fmt.Sprintf("Cannot read recording rule group '%s' -", name)
 	err = handleHTTPError(err, baseMsg)
 	if err != nil {
 		if isNotFound(err) {
+			if d.IsNewResource() {
+				// Reporting this as "gone" makes Terraform fail with the opaque
+				// "Provider produced inconsistent result after apply".
+				return diag.FromErr(fmt.Errorf(
+					"recording rule group '%s' (namespace: %s) was created but is still not readable after %s; "+
+						"the ruler may be slow to reload, retry the apply",
+					name, namespace, time.Duration(ruleGroupReadAttempts)*ruleGroupReadInterval))
+			}
 			d.SetId("")
 			return diag.Diagnostics{}
 		}
@@ -205,7 +222,9 @@ func resourcelokiRuleGroupRecordingDelete(ctx context.Context, d *schema.Resourc
 	}
 	path := rulesGroupPath(namespace, name)
 	_, err := client.sendRequest("DELETE", path, "", headers)
-	if err != nil {
+	// A group that is already gone is the desired end state, not a failure:
+	// without this the resource stays in state and destroy can never complete.
+	if err != nil && !isNotFound(err) {
 		return diag.FromErr(fmt.Errorf(
 			"cannot delete recording rule group '%s' from %s: %v",
 			name,

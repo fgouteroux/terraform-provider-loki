@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/grafana/loki/v3/pkg/logql/syntax"
@@ -20,6 +21,32 @@ var (
 // that every caller was doing inline.
 func isNotFound(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "response code '404'")
+}
+
+// readRuleGroupAfterChange fetches a rule group, retrying while the ruler
+// answers 404 for one it should already have.
+//
+// Loki's ruler writes rule groups to object storage and reloads them
+// asynchronously, so a read issued immediately after a create or an update can
+// legitimately miss. Treating that first 404 as "the group is gone" made
+// Terraform drop a resource it had just created, which surfaces as the opaque
+// "Provider produced inconsistent result after apply".
+func readRuleGroupAfterChange(client *apiClient, path string, headers map[string]string) (string, error) {
+	var body string
+	var err error
+
+	for attempt := 0; attempt < ruleGroupReadAttempts; attempt++ {
+		if attempt > 0 {
+			time.Sleep(ruleGroupReadInterval)
+		}
+
+		body, err = client.sendRequest("GET", path, "", headers)
+		if err == nil || !isNotFound(err) {
+			return body, err
+		}
+	}
+
+	return body, err
 }
 
 func handleHTTPError(err error, baseMsg string) error {

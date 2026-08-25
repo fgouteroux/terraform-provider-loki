@@ -656,8 +656,13 @@ func resourcelokiRulesImport(ctx context.Context, d *schema.ResourceData, m inte
 	if err != nil {
 		return nil, err
 	}
-	if err := d.Set(orgIDKey, orgID); err != nil {
-		return nil, err
+	// Only set org_id when the ID carries one: writing an explicit "" makes the
+	// imported object differ from one the resource created itself, where the
+	// attribute is simply absent.
+	if orgID != "" {
+		if err := d.Set(orgIDKey, orgID); err != nil {
+			return nil, err
+		}
 	}
 	if err := d.Set(namespaceKey, namespace); err != nil {
 		return nil, err

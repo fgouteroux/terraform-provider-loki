@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -668,24 +669,97 @@ func resourcelokiRulesDelete(ctx context.Context, d *schema.ResourceData, m inte
 }
 
 func resourcelokiRulesImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-	// Import format: namespace or orgID/namespace. The single-segment form was
-	// advertised by the error message below but rejected by the code, even
-	// though it is the ID this resource generates when org_id is unset.
+	// Import format: namespace or orgID/namespace.
 	orgID, namespace, err := parseNamespaceID(d.Id())
 	if err != nil {
 		return nil, err
 	}
-	if err := d.Set(orgIDKey, orgID); err != nil {
-		return nil, err
+	// Only set org_id when the ID carries one: writing an explicit "" makes the
+	// imported object differ from one the resource created itself, where the
+	// attribute is simply absent.
+	if orgID != "" {
+		if err := d.Set(orgIDKey, orgID); err != nil {
+			return nil, err
+		}
 	}
 	if err := d.Set(namespaceKey, namespace); err != nil {
 		return nil, err
 	}
 
-	// Note: For import, the user will need to provide content/content_file afterward
-	// We can't automatically detect the YAML content from the API
+	// content has to be filled in here. Terraform calls Read immediately after
+	// this function, and Read parses the configuration to know which groups it
+	// manages — so leaving content empty made every import fail with
+	// "no rule configuration provided" before any state was written.
+	client := m.(*apiClient)
+	headers := make(map[string]string)
+	if orgID != "" {
+		headers["X-Scope-OrgID"] = orgID
+	}
+
+	body, err := client.sendRequest("GET", rulesNamespacePath(namespace), "", headers)
+	if err != nil {
+		if isNotFound(err) {
+			return nil, fmt.Errorf("namespace %q holds no rule groups in loki", namespace)
+		}
+		return nil, fmt.Errorf("cannot read namespace %q: %w", namespace, err)
+	}
+
+	ruleGroups, err := decodeNamespaceRuleGroups(body)
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode the rule groups of namespace %q: %w", namespace, err)
+	}
+	if len(ruleGroups.Groups) == 0 {
+		return nil, fmt.Errorf("namespace %q holds no rule groups in loki", namespace)
+	}
+
+	content, err := marshalRuleGroups(ruleGroups)
+	if err != nil {
+		return nil, fmt.Errorf("cannot rebuild the configuration of namespace %q: %w", namespace, err)
+	}
+	if err := d.Set("content", content); err != nil {
+		return nil, err
+	}
 
 	return []*schema.ResourceData{d}, nil
+}
+
+// marshalRuleGroups renders rule groups as the `groups:` document the content
+// attribute expects, so what an import writes into state is something the
+// resource can parse straight back.
+func marshalRuleGroups(ruleGroups RuleGroups) (string, error) {
+	data, err := yaml.Marshal(ruleGroups)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// decodeNamespaceRuleGroups reads what the ruler returns for a single
+// namespace. Loki answers with a map keyed by namespace name; a bare list is
+// accepted too so that a gateway returning the inner value still imports.
+//
+// Groups are sorted by name: the ruler does not promise an order, and an
+// unstable order would show up as a spurious diff on the next plan.
+func decodeNamespaceRuleGroups(body string) (RuleGroups, error) {
+	var byNamespace map[string][]RuleGroup
+	if err := yaml.Unmarshal([]byte(body), &byNamespace); err == nil {
+		var groups RuleGroups
+		for _, namespaceGroups := range byNamespace {
+			groups.Groups = append(groups.Groups, namespaceGroups...)
+		}
+		sort.Slice(groups.Groups, func(i, j int) bool {
+			return groups.Groups[i].Name < groups.Groups[j].Name
+		})
+		return groups, nil
+	}
+
+	var flat []RuleGroup
+	if err := yaml.Unmarshal([]byte(body), &flat); err != nil {
+		return RuleGroups{}, err
+	}
+	sort.Slice(flat, func(i, j int) bool { return flat[i].Name < flat[j].Name })
+
+	return RuleGroups{Groups: flat}, nil
 }
 
 // Helper functions

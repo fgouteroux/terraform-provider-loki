@@ -173,3 +173,18 @@ Read-Only:
 - `name` (String)
 - `recording_rules_count` (Number)
 - `rules_count` (Number)
+
+## Import
+
+Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
+
+```shell
+# The whole namespace is imported: content is rebuilt from the rule groups loki
+# already holds, so no configuration has to be written beforehand.
+terraform import loki_rules.test {{namespace}}
+
+# With a tenant:
+terraform import loki_rules.test {{org_id/namespace}}
+```

@@ -56,7 +56,7 @@ type apiClient struct {
 	headers    map[string]string
 	debug      bool
 	awsSigV4   *awsSigV4Config
-	awsCreds   aws.Credentials
+	awsCreds   aws.CredentialsProvider
 }
 
 // Make a new api client for RESTful calls
@@ -148,12 +148,16 @@ func NewAPIClient(opt *apiClientOpt) (*apiClient, error) {
 			return nil, fmt.Errorf("failed to load AWS config: %w", err)
 		}
 
-		creds, err := cfg.Credentials.Retrieve(context.Background())
-		if err != nil {
+		// Keep the provider rather than a retrieved snapshot. Credentials from an
+		// instance profile, an assumed role or SSO are temporary — often an hour,
+		// sometimes fifteen minutes — so a value fetched once at provider
+		// configuration time starts failing partway through a long apply. The SDK
+		// caches and refreshes behind Retrieve, so calling it per request is cheap.
+		if _, err := cfg.Credentials.Retrieve(context.Background()); err != nil {
 			return nil, fmt.Errorf("failed to retrieve AWS credentials: %w", err)
 		}
 
-		client.awsCreds = creds
+		client.awsCreds = cfg.Credentials
 
 		if opt.debug {
 			log.Printf("api_client.go: AWS SigV4 enabled for region=%s, service=%s\n",
@@ -278,9 +282,14 @@ func (client *apiClient) signWithSigV4(req *http.Request, body []byte) error {
 	hash := sha256.Sum256(body)
 	payloadHash := hex.EncodeToString(hash[:])
 
+	creds, err := client.awsCreds.Retrieve(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to retrieve AWS credentials: %w", err)
+	}
+
 	return signer.SignHTTP(
-		context.Background(),
-		client.awsCreds,
+		req.Context(),
+		creds,
 		req,
 		payloadHash,
 		client.awsSigV4.service,

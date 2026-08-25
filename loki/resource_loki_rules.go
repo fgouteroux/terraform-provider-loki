@@ -502,11 +502,29 @@ func resourcelokiRulesCreate(ctx context.Context, d *schema.ResourceData, m inte
 		}
 
 		if err := createLokiRuleGroup(client, namespace, orgID, group); err != nil {
-			// Clean up any groups that were already created
+			// Clean up any groups that were already created. Nothing records the
+			// resource in state on this path, so a group left behind here is
+			// invisible to Terraform: if the rollback itself fails, say which
+			// groups may be orphaned rather than dropping the error.
+			var orphaned []string
 			for _, createdGroup := range createdGroups {
-				deleteLokiRuleGroup(client, namespace, orgID, createdGroup)
+				if cleanupErr := deleteLokiRuleGroup(client, namespace, orgID, createdGroup); cleanupErr != nil {
+					orphaned = append(orphaned, createdGroup)
+				}
 			}
-			return diag.FromErr(fmt.Errorf("failed to create rule group '%s': %w", group.Name, err))
+
+			diags := diag.FromErr(fmt.Errorf("failed to create rule group '%s': %w", group.Name, err))
+			if len(orphaned) > 0 {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Warning,
+					Summary:  "Rule groups left behind in loki",
+					Detail: fmt.Sprintf(
+						"After the failure above, these groups could not be cleaned up and still exist in namespace %q: %s. "+
+							"They are not tracked by terraform; remove them by hand or re-apply once the cause is fixed.",
+						namespace, strings.Join(orphaned, ", ")),
+				})
+			}
+			return diags
 		}
 		createdGroups = append(createdGroups, group.Name)
 	}

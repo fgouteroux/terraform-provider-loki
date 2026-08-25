@@ -11,9 +11,8 @@ import (
 )
 
 var (
-	groupRuleNameRegexp = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9-_.]*$`)
-	labelNameRegexp     = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
-	metricNameRegexp    = regexp.MustCompile(`^[a-zA-Z_:][a-zA-Z0-9_:]*$`)
+	labelNameRegexp  = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+	metricNameRegexp = regexp.MustCompile(`^[a-zA-Z_:][a-zA-Z0-9_:]*$`)
 )
 
 // isNotFound reports whether err came back from a 404. sendRequest returns a
@@ -41,12 +40,39 @@ func expandStringMap(v map[string]interface{}) map[string]string {
 	return m
 }
 
+// validateGroupRuleName holds a rule group name to what Loki's ruler accepts:
+// non-empty, and usable as a URL path segment. It used to require
+// ^[a-zA-Z][a-zA-Z0-9-_.]*$, which rejects names Loki is perfectly happy with
+// ("5xxErrors", "High error rate") and so locked users out of managing rule
+// files they did not write.
 func validateGroupRuleName(v interface{}, k string) (ws []string, errors []error) {
-	value := v.(string)
+	if err := checkPathSegment(v.(string), "rule group name"); err != nil {
+		errors = append(errors, fmt.Errorf("%q: %s", k, err))
+	}
 
-	if !groupRuleNameRegexp.MatchString(value) {
-		errors = append(errors, fmt.Errorf(
-			"\"%s\": Invalid Group Rule Name %q. Must match the regex %s", k, value, groupRuleNameRegexp))
+	return
+}
+
+// validateNamespace holds a namespace to the same rules. Without it a namespace
+// containing a '/' produced an ambiguous resource ID that was read back as an
+// org_id, addressing a different tenant.
+func validateNamespace(v interface{}, k string) (ws []string, errors []error) {
+	if err := checkPathSegment(v.(string), namespaceKey); err != nil {
+		errors = append(errors, fmt.Errorf("%q: %s", k, err))
+	}
+
+	return
+}
+
+// validateOrgID rejects a tenant that cannot be sent as a header value.
+func validateOrgID(v interface{}, k string) (ws []string, errors []error) {
+	value := v.(string)
+	// An empty org_id means "inherit from the provider", which is valid here.
+	if value == "" {
+		return
+	}
+	if err := checkOrgID(value); err != nil {
+		errors = append(errors, fmt.Errorf("%q: %s", k, err))
 	}
 
 	return
